@@ -6,6 +6,13 @@
 #include <pthread.h>
 #include <cstdlib>
 
+// this was required in C++14, no longer so in C++17 but for educational value: Arm::TAP_COOLDOWN is ODR-used
+// in driver.cpp so even though this is initialised in the class, a definition in the compilation unit was
+// still required (although:
+//     "(...) an object is odr-used if its value is read (unless it is a compile time constant)(...)
+// so I'm not sure why this is actually ODR-used)
+//constexpr std::chrono::milliseconds Arm::TAP_COOLDOWN;
+
 Arm::Arm() : m_isBusy(false) {
     init();
 }

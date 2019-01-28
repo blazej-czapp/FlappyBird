@@ -1,5 +1,7 @@
 #pragma once
 
+#include <chrono>
+
 // http://libk8055.sourceforge.net/
 
 class Arm {
@@ -9,7 +11,7 @@ public:
     void setBusy(bool val);
     void deactivate();
 
-    static const int TAP_COOLDOWN = 200 * 1000; //ns
+    constexpr static std::chrono::milliseconds TAP_COOLDOWN{200}; // * 1000; //TODO previously ns
 
 private:
     int init();

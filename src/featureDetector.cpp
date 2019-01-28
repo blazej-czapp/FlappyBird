@@ -1,5 +1,5 @@
-#include "world.hpp"
-#include "camera.hpp"
+#include "featureDetector.hpp"
+#include "display.hpp"
 #include "util.hpp"
 
 #include "opencv2/highgui/highgui.hpp"
@@ -14,14 +14,14 @@ const int SEARCH_WINDOW_SIZE = 40;
 const float PIPE_WIDTH = 0.18f; // as proportion of screen width
 const float GAP_HEIGHT = 0.35f; // as proportion of screen width
 
-World::World(const cv::Mat& map, Camera& cam) :
-    m_map(map), m_cam(cam), m_lowSweepY(cam.getGroundLevel() - 10),
+FeatureDetector::FeatureDetector(const cv::Mat& map, const cv::Mat& bird, Display& cam) :
+    m_thresholdedMap{map}, m_thresholdedBird{bird}, m_cam{cam}, m_lowSweepY{cam.getGroundLevel() - 10},
     m_pipeWidth(cam.getScreenWidth() * PIPE_WIDTH), m_pipeSpacing(m_pipeWidth * 1.5f),
     m_gapHeight(cam.getScreenWidth() * GAP_HEIGHT) {}
 
-int World::lookUp(int x, int y, int lookFor) const {
+int FeatureDetector::lookUp(int x, int y, int lookFor) const {
     for (int row = y; row > 0; --row) {
-        if (m_map.ptr<uchar>(row)[x] == lookFor) {
+        if (m_thresholdedMap.ptr<uchar>(row)[x] == lookFor) {
             return row;
         }
     }
@@ -29,10 +29,10 @@ int World::lookUp(int x, int y, int lookFor) const {
     return -1;
 }
 
-int World::lookLeft(int x, int y) const {
+int FeatureDetector::lookLeft(int x, int y) const {
     for (int i = x; i > x - m_pipeWidth*2; --i) {
         // assuming no noise inside a pipe
-        if (m_map.ptr<uchar>(y)[i] == 0) {
+        if (m_thresholdedMap.ptr<uchar>(y)[i] == 0) {
             return i;
         }
     }
@@ -40,8 +40,8 @@ int World::lookLeft(int x, int y) const {
     return -1;
 }
 
-bool World::getGapAt(int x, Gap& gap) const {
-    WARN_UNLESS(m_map.ptr<uchar>(m_lowSweepY)[x] == 255, "looking for a gap at a non-white pixel");
+bool FeatureDetector::getGapAt(int x, Gap& gap) const {
+    WARN_UNLESS(m_thresholdedMap.ptr<uchar>(m_lowSweepY)[x] == 255, "looking for a gap at a non-white pixel");
     int gapY = lookUp(x, m_lowSweepY, 0); // find the bottom of the gap above
     int gapLeftX = lookLeft(x, m_lowSweepY);
 
@@ -58,7 +58,7 @@ bool World::getGapAt(int x, Gap& gap) const {
     // found the leftmost corners of the obstacle in x, find the rightmost ones
     bool foundRightCorner = false;
     for (int exitX = x + m_pipeWidth * 0.5; exitX < x + m_pipeWidth * 1.5; exitX++) {
-        if (m_map.ptr<uchar>(m_lowSweepY)[exitX] == 0) { // are we out of the pipe yet?
+        if (m_thresholdedMap.ptr<uchar>(m_lowSweepY)[exitX] == 0) { // are we out of the pipe yet?
             gap.lowerRight = cv::Point(exitX, gap.lowerLeft.y);
             gap.upperRight = cv::Point(exitX, gap.upperLeft.y);
             foundRightCorner = true;
@@ -85,10 +85,9 @@ bool World::getGapAt(int x, Gap& gap) const {
     return true;
 }
 
-bool World::findFirstGapAheadOf(int x, Gap& gap) const {
+bool FeatureDetector::findFirstGapAheadOf(int x, Gap& gap) const {
     assert(m_cam.boundariesKnown);
-    m_cam.drawLine(cv::Point(x, m_lowSweepY), cv::Point(x+NOISE_BUFFER, m_lowSweepY), cv::Scalar(255, 255, 0));
-    const uchar* row = m_map.ptr<uchar>(m_lowSweepY);
+    const uchar* row = m_thresholdedMap.ptr<uchar>(m_lowSweepY);
     for (unsigned searchX = x; searchX < m_cam.getRightBoundary() - 40; searchX += SEARCH_WINDOW_SIZE) { // -40 for the screen boundary noise (plus it doesn't matter anyway)
         if (searchX + SEARCH_WINDOW_SIZE >= m_cam.getRightBoundary()) {
             return false;
@@ -123,19 +122,11 @@ bool World::findFirstGapAheadOf(int x, Gap& gap) const {
     return false;
 }
 
-void World::markGap(const Gap& gap) const {
-    m_cam.mark(gap.lowerLeft, cv::Scalar(255, 0, 0));
-    m_cam.mark(gap.lowerRight, cv::Scalar(255, 0, 0));
-    m_cam.mark(gap.upperLeft, cv::Scalar(0, 0, 255));
-    m_cam.mark(gap.upperRight, cv::Scalar(0, 0, 255));
-}
-
-int World::findGapsAheadOf(int x, Gap& left, Gap& right) const {
+int FeatureDetector::findGapsAheadOf(int x, Gap& left, Gap& right) const {
     bool inGap = false;
     bool foundGap = false;
     if (findFirstGapAheadOf(x, left)) {
         foundGap = true;
-        markGap(left);
         if (left.lowerLeft.x - x < NOISE_BUFFER) {
             inGap = true;
         }
@@ -145,7 +136,6 @@ int World::findGapsAheadOf(int x, Gap& left, Gap& right) const {
         // if we're in a gap, then we can see the next pipe ahead
         bool found = findFirstGapAheadOf(x + m_pipeSpacing, right);
         //assert(found);
-        markGap(right);
 
         return 2;
     } else if (foundGap) {
@@ -154,4 +144,23 @@ int World::findGapsAheadOf(int x, Gap& left, Gap& right) const {
     } else {
         return 0;
     }
+}
+
+cv::Point FeatureDetector::findBird() const {
+    //Calculate the moments of the thresholded image
+    cv::Moments oMoments = cv::moments(m_thresholdedBird);
+
+    double dM01 = oMoments.m01;
+    double dM10 = oMoments.m10;
+    double dArea = oMoments.m00;
+
+    // if the area <= 10000 - assume no object in the image (presumably due to noise)
+    if (dArea > 10000) {
+        //calculate the m_position of the ball
+        int posX = dM10 / dArea;
+        int posY = dM01 / dArea;
+        return cv::Point(posX, posY);
+    }
+
+    return cv::Point(-1, -1);
 }

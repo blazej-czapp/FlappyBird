@@ -1,44 +1,179 @@
 #include <string>
 #include <iostream>
+#include <vector>
+#include <chrono>
+#include <memory>
+
+#include "opencv2/core/core.hpp"
 
 #include "arm.hpp"
-#include "bird.hpp"
-#include "camera.hpp"
+#include "driver.hpp"
+#include "display.hpp"
+#include "util.hpp"
+
+const static std::string RECORDING_FILE = "recording.xml";
+const static std::string FRAMES_KEY = "frames";
+const static std::string TIMESTAMPS_KEY = "timestamps";
+
+using Recording = std::vector<std::pair<std::chrono::milliseconds, cv::Mat>>;
+
+/// the only integral type OpenCV's serialization supports is int
+using TimestampSerializationT = int;
+
+void saveRecording(const Recording& recording, const Display& display) {
+    cv::FileStorage fs(RECORDING_FILE, cv::FileStorage::WRITE);
+
+    display.serialise(fs);
+
+    fs << "frames" << "[";
+    for (const auto& frame : recording) {
+        fs << frame.second;
+    }
+    fs << "]";
+
+    fs << "timestamps" << "[";
+    for (const auto& frame : recording) {
+        assert(frame.first.count() < std::numeric_limits<TimestampSerializationT>::max());
+        fs << static_cast<TimestampSerializationT>(frame.first.count());
+    }
+    fs << "]";
+}
+
+bool loadRecording(Recording& out, Display& display) {
+    cv::FileStorage fs(RECORDING_FILE, cv::FileStorage::READ);
+
+    if (!fs.isOpened()) {
+        std::cerr << "Couldn't open file: " << RECORDING_FILE << std::endl;
+        return false;
+    }
+
+    cv::FileNode frames = fs[FRAMES_KEY];
+    if (frames.type() != cv::FileNode::SEQ)
+    {
+        std::cerr << "Frames not a sequence" << std::endl;
+        return false;
+    }
+
+    const std::chrono::milliseconds placeholder{};
+    cv::FileNodeIterator framesEnd = frames.end();
+    for (cv::FileNodeIterator it = frames.begin(); it != framesEnd; ++it)
+    {
+        cv::Mat temp;
+        *it >> temp;
+        out.push_back(std::make_pair(placeholder, std::move(temp)));
+    }
+
+    cv::FileNode timestamps = fs[TIMESTAMPS_KEY];
+    if (timestamps.type() != cv::FileNode::SEQ)
+    {
+        std::cerr << "Frames not a sequence" << std::endl;
+        return false;
+    }
+
+    cv::FileNodeIterator timestampsEnd = timestamps.end();
+    cv::FileNodeIterator timestampsBegin = timestamps.begin();
+    for (cv::FileNodeIterator it = timestampsBegin; it != timestampsEnd; ++it)
+    {
+        TimestampSerializationT timestamp;
+        *it >> timestamp;
+        out[it - timestampsBegin].first = std::chrono::milliseconds{timestamp};
+    }
+
+    display.deserialise(fs);
+
+    return true;
+}
 
 int main(int argc, char** argv) {
-    Camera cam;
+    Display display;
     Arm arm;
-    Bird bird{arm, cam};
-    bool birdIsDriving = false;
+    Driver driver{arm, display};
+    bool humanDriving = true;
 
     try {
-        while (true) {
-            cv::Point birdPos;
-            cv::Mat world;
-            cam.capture(birdPos, world);
+        bool recordFeed = false;
+        // time at start of recording
+        // OR
+        // time at start of playback
+        std::chrono::system_clock::time_point timerStart{};
+        size_t currentPlaybackFrame = 0;
+        Recording recording;
 
-            if (birdIsDriving) {
-                World w{world, cam};
-                bird.fly(w, birdPos);
+        bool playback = false;
+
+        playback = false;
+        timerStart = std::chrono::system_clock::now();
+        cv::Mat thresholdedBird;
+        cv::Mat thresholdedWorld;
+        while (true) {
+            if (playback) {
+                auto now = std::chrono::system_clock::now();
+                while (currentPlaybackFrame < recording.size() && recording[currentPlaybackFrame].first < now - timerStart) {
+                    ++currentPlaybackFrame;
+                }
+
+                if (currentPlaybackFrame == recording.size()) {
+                    // loop to start
+                    timerStart = now; // close enough
+                    currentPlaybackFrame = 0;
+                }
+
+                display.playback(recording[currentPlaybackFrame].second);
+            } else {
+                display.capture();
+                if (recordFeed) {
+                    recording.push_back(std::make_pair(
+                            std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() -
+                                                                                  timerStart),
+                            display.getCurrentFrame().clone()));
+                }
             }
 
-            const char key = cv::waitKey(30);
+            display.threshold(thresholdedBird, thresholdedWorld);
+
+            if (!humanDriving) {
+                FeatureDetector detector{thresholdedWorld, thresholdedBird, display};
+                driver.drive(detector);
+            }
+
+            // driver will mark some objects in the frame so only display the frame once it's done
+            display.show();
+
+            const char key = cv::waitKey(15);
             if (key == 27) {
-                std::cout << "esc key is pressed by user" << std::endl;
+                std::cout << "Exiting" << std::endl;
+                if (recordFeed) {
+
+                }
                 break;
-            } else if (key == 32 && !birdIsDriving) { // space
+            } else if (key == 32 && humanDriving) { // space
                 std::cout << "space" << std::endl;
                 arm.tap();
             } else if (key == 'a') {
                 std::cout << "Switching to automatic" << std::endl;
-                birdIsDriving = true;
+                humanDriving = false;
             } else if (key == 'm') {
                 std::cout << "Switching to manual" << std::endl;
-                birdIsDriving = false;
+                humanDriving = true;
+            } else if (key == 'r' /*|| (recordFeed && count > 2) || count == 0*/) {
+                recordFeed = !recordFeed;
+                std::cout << "Recording feed" << std::endl;
+                timerStart = std::chrono::system_clock::now();
+
+                if (!recordFeed /*|| count > 2*/) {
+                    std::cout << "Saving feed to: " << RECORDING_FILE << std::endl;
+                    saveRecording(recording, display);
+                    recording.clear();
+                }
+            } else if (key == 'l') {
+                std::cout << "Loading recording from " << RECORDING_FILE << std::endl;
+                loadRecording(recording, display);
+                playback = true;
+                timerStart = std::chrono::system_clock::now();
             }
         }
-    } catch (std::string& err) {
-        std::cout << "Error: " << err << std::endl;
+    } catch (std::exception& ex) {
+        std::cerr << "Error: " << ex.what() << std::endl;
     }
 
     arm.deactivate();
