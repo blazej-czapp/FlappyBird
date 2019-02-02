@@ -12,22 +12,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="976a87a7-f20c-4864-b33c-f48344c023b6" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/src/speed.hpp" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/CMakeLists.txt" beforeDir="false" afterPath="$PROJECT_DIR$/CMakeLists.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Makefile" beforeDir="false" afterPath="$PROJECT_DIR$/Makefile" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Gaps.cpp" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Gaps.hpp" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/arm.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/arm.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/arm.hpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/arm.hpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/arm1.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/arm1.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/arm1.hpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/arm1.hpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/display.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/display.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/display.hpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/display.hpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/driver.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/driver.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/driver.hpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/driver.hpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/featureDetector.hpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/featureDetector.hpp" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.cpp" afterDir="false" />
     </list>
     <ignored path="$PROJECT_DIR$/cmake-build-debug/" />
@@ -55,11 +41,11 @@
   <component name="ExecutionTargetManager" SELECTED_TARGET="CMakeBuildProfile:Debug" />
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file pinned="false" current-in-tab="true">
+      <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/driver.cpp">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="-675">
-              <caret line="12" selection-start-line="12" selection-end-line="12" />
+            <state relative-caret-position="405">
+              <caret line="34" column="27" lean-forward="true" selection-start-line="34" selection-start-column="27" selection-end-line="34" selection-end-column="27" />
               <folding>
                 <element signature="e#0#21#0" expanded="true" />
               </folding>
@@ -67,11 +53,32 @@
           </provider>
         </entry>
       </file>
+      <file pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/src/main.cpp">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="465">
+              <caret line="193" column="17" selection-start-line="193" selection-start-column="17" selection-end-line="193" selection-end-column="17" />
+              <folding>
+                <element signature="e#0#17#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file:///usr/include/opencv2/highgui.hpp">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="215">
+              <caret line="304" column="18" selection-start-line="304" selection-start-column="18" selection-end-line="304" selection-end-column="18" />
+            </state>
+          </provider>
+        </entry>
+      </file>
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/driver.hpp">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="585">
-              <caret line="58" lean-forward="true" selection-start-line="58" selection-end-line="58" />
+            <state relative-caret-position="870">
+              <caret line="58" selection-start-line="58" selection-end-line="58" />
             </state>
           </provider>
         </entry>
@@ -80,7 +87,7 @@
         <entry file="file://$PROJECT_DIR$/src/gap.hpp">
           <provider selected="true" editor-type-id="text-editor">
             <state relative-caret-position="45">
-              <caret line="3" lean-forward="true" selection-start-line="3" selection-end-line="3" />
+              <caret line="3" selection-start-line="3" selection-end-line="3" />
             </state>
           </provider>
         </entry>
@@ -109,8 +116,8 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/display.hpp">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="345">
-              <caret line="57" column="9" lean-forward="true" selection-start-line="57" selection-start-column="9" selection-end-line="57" selection-end-column="9" />
+            <state relative-caret-position="514">
+              <caret line="57" column="9" selection-start-line="57" selection-start-column="9" selection-end-line="57" selection-end-column="9" />
               <folding>
                 <element signature="e#14#35#0" expanded="true" />
               </folding>
@@ -121,8 +128,8 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/display.cpp">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="135">
-              <caret line="17" lean-forward="true" selection-start-line="17" selection-end-line="17" />
+            <state>
+              <caret line="34" column="73" selection-start-line="34" selection-start-column="73" selection-end-line="34" selection-end-column="73" />
               <folding>
                 <element signature="e#0#22#0" expanded="true" />
               </folding>
@@ -134,10 +141,6 @@
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
-      <find>m_currentClick</find>
-      <find>getCurre</find>
-      <find>Cannot open the web cam</find>
-      <find>throw</find>
       <find>cout</find>
       <find>640</find>
       <find>480</find>
@@ -164,6 +167,10 @@
       <find>capture</find>
       <find>m_frameWidth</find>
       <find>frameWi</find>
+      <find>currentFrameStart</find>
+      <find>playbackTime</find>
+      <find>count</find>
+      <find>thresholdedBird</find>
     </findStrings>
   </component>
   <component name="Git.Settings">
@@ -194,12 +201,12 @@
         <option value="$PROJECT_DIR$/src/speed.hpp" />
         <option value="$PROJECT_DIR$/CMakeLists.txt" />
         <option value="$PROJECT_DIR$/src/arm.cpp" />
-        <option value="$PROJECT_DIR$/src/main.cpp" />
         <option value="$PROJECT_DIR$/src/display.hpp" />
         <option value="$PROJECT_DIR$/src/driver.cpp" />
         <option value="$PROJECT_DIR$/src/gap.hpp" />
         <option value="$PROJECT_DIR$/src/featureDetector.hpp" />
         <option value="$PROJECT_DIR$/src/display.cpp" />
+        <option value="$PROJECT_DIR$/src/main.cpp" />
       </list>
     </option>
   </component>
@@ -298,6 +305,28 @@
       <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.24958494" />
       <window_info anchor="right" id="Database" order="3" weight="0.32982844" />
     </layout>
+    <layout-to-restore>
+      <window_info content_ui="combo" id="Project" order="0" weight="0.20254566" />
+      <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
+      <window_info id="Favorites" order="2" side_tool="true" />
+      <window_info anchor="bottom" id="Message" order="0" />
+      <window_info anchor="bottom" id="Find" order="1" weight="0.32937366" />
+      <window_info active="true" anchor="bottom" id="Run" order="2" visible="true" weight="0.2149028" />
+      <window_info anchor="bottom" id="Debug" order="3" weight="0.3488121" />
+      <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
+      <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
+      <window_info anchor="bottom" id="TODO" order="6" weight="0.32937366" />
+      <window_info anchor="bottom" id="Database Changes" order="7" />
+      <window_info anchor="bottom" id="Messages" order="8" weight="0.21166307" />
+      <window_info anchor="bottom" id="Terminal" order="9" weight="0.32937366" />
+      <window_info anchor="bottom" id="Event Log" order="10" side_tool="true" />
+      <window_info anchor="bottom" id="Version Control" order="11" weight="0.32937366" />
+      <window_info anchor="bottom" id="CMake" order="12" weight="0.32829374" />
+      <window_info anchor="right" id="Commander" internal_type="SLIDING" order="0" type="SLIDING" weight="0.4" />
+      <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
+      <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.24958494" />
+      <window_info anchor="right" id="Database" order="3" weight="0.32982844" />
+    </layout-to-restore>
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="1" />
@@ -482,13 +511,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file:///usr/include/opencv2/highgui.hpp">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="260">
-          <caret line="301" column="36" selection-start-line="301" selection-start-column="36" selection-end-line="301" selection-end-column="36" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/src/arm.cpp">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="195">
@@ -503,16 +525,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="240">
           <caret line="16" column="31" selection-start-line="16" selection-start-column="31" selection-end-line="16" selection-end-column="31" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/main.cpp">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="529">
-          <caret line="131" column="14" selection-start-line="131" selection-start-column="14" selection-end-line="131" selection-end-column="14" />
-          <folding>
-            <element signature="e#0#17#0" expanded="true" />
-          </folding>
         </state>
       </provider>
     </entry>
@@ -547,24 +559,27 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/src/driver.cpp">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="405">
+          <caret line="34" column="27" lean-forward="true" selection-start-line="34" selection-start-column="27" selection-end-line="34" selection-end-column="27" />
+          <folding>
+            <element signature="e#0#21#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/src/driver.hpp">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="585">
-          <caret line="58" lean-forward="true" selection-start-line="58" selection-end-line="58" />
+        <state relative-caret-position="870">
+          <caret line="58" selection-start-line="58" selection-end-line="58" />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/src/gap.hpp">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="45">
-          <caret line="3" lean-forward="true" selection-start-line="3" selection-end-line="3" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/featureDetector.hpp">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="495">
-          <caret line="33" column="14" selection-start-line="33" selection-start-column="14" selection-end-line="33" selection-end-column="14" />
+          <caret line="3" selection-start-line="3" selection-end-line="3" />
         </state>
       </provider>
     </entry>
@@ -578,10 +593,17 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/src/featureDetector.hpp">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="495">
+          <caret line="33" column="14" selection-start-line="33" selection-start-column="14" selection-end-line="33" selection-end-column="14" />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/src/display.hpp">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="345">
-          <caret line="57" column="9" lean-forward="true" selection-start-line="57" selection-start-column="9" selection-end-line="57" selection-end-column="9" />
+        <state relative-caret-position="514">
+          <caret line="57" column="9" selection-start-line="57" selection-start-column="9" selection-end-line="57" selection-end-column="9" />
           <folding>
             <element signature="e#14#35#0" expanded="true" />
           </folding>
@@ -590,20 +612,27 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/src/display.cpp">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="135">
-          <caret line="17" lean-forward="true" selection-start-line="17" selection-end-line="17" />
+        <state>
+          <caret line="34" column="73" selection-start-line="34" selection-start-column="73" selection-end-line="34" selection-end-column="73" />
           <folding>
             <element signature="e#0#22#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/driver.cpp">
+    <entry file="file:///usr/include/opencv2/highgui.hpp">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-675">
-          <caret line="12" selection-start-line="12" selection-end-line="12" />
+        <state relative-caret-position="215">
+          <caret line="304" column="18" selection-start-line="304" selection-start-column="18" selection-end-line="304" selection-end-column="18" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/main.cpp">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="465">
+          <caret line="193" column="17" selection-start-line="193" selection-start-column="17" selection-end-line="193" selection-end-column="17" />
           <folding>
-            <element signature="e#0#21#0" expanded="true" />
+            <element signature="e#0#17#0" expanded="true" />
           </folding>
         </state>
       </provider>

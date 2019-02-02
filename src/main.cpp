@@ -20,7 +20,13 @@ using Recording = std::vector<std::pair<std::chrono::milliseconds, cv::Mat>>;
 /// the only integral type OpenCV's serialization supports is int
 using TimestampSerializationT = int;
 
+int playbackSpeed = 100; // percent
+
 void saveRecording(const Recording& recording, const Display& display) {
+    if (recording.size() < 2) {
+        std::cerr << "Cannot save recording, it must have at least two frames (this one has " << recording.size() << ")" << std::endl;
+        return;
+    }
     cv::FileStorage fs(RECORDING_FILE, cv::FileStorage::WRITE);
 
     display.serialise(fs);
@@ -54,6 +60,11 @@ bool loadRecording(Recording& out, Display& display) {
         return false;
     }
 
+    if (frames.size() < 2) {
+        std::cerr << "Recording must have at least two frames (this has " << frames.size() << " frames)" << std::endl;
+        return false;
+    }
+
     const std::chrono::milliseconds placeholder{};
     cv::FileNodeIterator framesEnd = frames.end();
     for (cv::FileNodeIterator it = frames.begin(); it != framesEnd; ++it)
@@ -67,6 +78,11 @@ bool loadRecording(Recording& out, Display& display) {
     if (timestamps.type() != cv::FileNode::SEQ)
     {
         std::cerr << "Frames not a sequence" << std::endl;
+        return false;
+    }
+
+    if (timestamps.size() < 2) {
+        std::cerr << "Recording must have at least two frames (this has " << timestamps.size() << " timestamps)" << std::endl;
         return false;
     }
 
@@ -95,27 +111,27 @@ int main(int argc, char** argv) {
         // time at start of recording
         // OR
         // time at start of playback
-        std::chrono::system_clock::time_point timerStart{};
+        std::chrono::system_clock::time_point currentFrameStart{};
         size_t currentPlaybackFrame = 0;
         Recording recording;
 
         bool playback = false;
 
-        playback = false;
-        timerStart = std::chrono::system_clock::now();
         cv::Mat thresholdedBird;
         cv::Mat thresholdedWorld;
         while (true) {
             if (playback) {
                 auto now = std::chrono::system_clock::now();
-                while (currentPlaybackFrame < recording.size() && recording[currentPlaybackFrame].first < now - timerStart) {
-                    ++currentPlaybackFrame;
-                }
+                auto frameElapsed = now - currentFrameStart;
+                auto frameDelta = (recording[currentPlaybackFrame + 1].first - recording[currentPlaybackFrame].first) *
+                                  (100.f / playbackSpeed);
 
-                if (currentPlaybackFrame == recording.size()) {
-                    // loop to start
-                    timerStart = now; // close enough
-                    currentPlaybackFrame = 0;
+                if (frameElapsed > frameDelta) {
+                    // last frame isn't displayed (we don't know its duration) - it's only used to determine
+                    // the duration of the penultimate frame
+                    currentPlaybackFrame = (currentPlaybackFrame + 1) % (recording.size() - 1);
+                    currentFrameStart = now - std::chrono::duration_cast<std::chrono::milliseconds>(frameElapsed -
+                                                                                                    frameDelta);
                 }
 
                 display.playback(recording[currentPlaybackFrame].second);
@@ -124,7 +140,7 @@ int main(int argc, char** argv) {
                 if (recordFeed) {
                     recording.push_back(std::make_pair(
                             std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() -
-                                                                                  timerStart),
+                                                                                  currentFrameStart),
                             display.getCurrentFrame().clone()));
                 }
             }
@@ -155,21 +171,27 @@ int main(int argc, char** argv) {
             } else if (key == 'm') {
                 std::cout << "Switching to manual" << std::endl;
                 humanDriving = true;
-            } else if (key == 'r' /*|| (recordFeed && count > 2) || count == 0*/) {
+            } else if (key == 'r') {
                 recordFeed = !recordFeed;
                 std::cout << "Recording feed" << std::endl;
-                timerStart = std::chrono::system_clock::now();
+                currentFrameStart = std::chrono::system_clock::now();
 
-                if (!recordFeed /*|| count > 2*/) {
+                if (!recordFeed) {
                     std::cout << "Saving feed to: " << RECORDING_FILE << std::endl;
                     saveRecording(recording, display);
                     recording.clear();
                 }
             } else if (key == 'l') {
-                std::cout << "Loading recording from " << RECORDING_FILE << std::endl;
-                loadRecording(recording, display);
-                playback = true;
-                timerStart = std::chrono::system_clock::now();
+                if (!playback) {
+                    std::cout << "Loading recording from " << RECORDING_FILE << std::endl;
+                    cv::namedWindow("Playback speed");
+                    cv::createTrackbar("Speed", "Playback speed", &playbackSpeed, 100);
+                    if (loadRecording(recording, display)) {
+                        playback = true;
+                        currentFrameStart = std::chrono::system_clock::now();
+                        currentPlaybackFrame = 0;
+                    }
+                }
             }
         }
     } catch (std::exception& ex) {
