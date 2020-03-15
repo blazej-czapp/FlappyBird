@@ -1,6 +1,8 @@
 #pragma once
 
+#include <optional>
 #include "gap.hpp"
+#include "units.hpp"
 
 namespace cv {
     class Mat;
@@ -17,18 +19,18 @@ public:
     FeatureDetector(const FeatureDetector&) = delete;
     FeatureDetector(FeatureDetector&&) = delete;
 
-    int findGapsAheadOf(int x, Gap& left, Gap& right) const;
-    cv::Point findBird() const;
+    std::pair<std::optional<Gap>, std::optional<Gap>> findGapsAheadOf(Position pos) const;
+    std::optional<Position> findBird() const;
 
 private:
-    bool findFirstGapAheadOf(int x, Gap& gap) const;
-    bool getGapAt(int x, Gap& gap) const;
+    std::optional<Gap> findFirstGapAheadOf(int x) const;
+    std::optional<Gap> getGapAt(int x) const;
     int lookUp(int x, int y, int lookFor) const;
     int lookLeft(int x, int y) const;
 
     const cv::Mat& m_thresholdedMap;
     const cv::Mat& m_thresholdedBird;
-    Display& m_cam;
+    Display& m_display;
     const int m_lowSweepY; // sweep low to ensure we hit a pipe, not drive through a gap
     const int m_pipeWidth;
     const int m_pipeSpacing;

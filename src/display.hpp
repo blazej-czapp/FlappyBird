@@ -5,17 +5,17 @@
 #include "opencv2/videoio.hpp"
 
 #include "gap.hpp"
+#include "units.hpp"
+#include "VideoSource.hpp"
 
 class Display {
     static const std::string FEED_NAME;
 
 public:
-    Display();
+    Display(VideoSource& source);
     virtual ~Display();
 
-    void capture();
-    /// capture() equivalent but takes frame as input rather than from the actual camera
-    void playback(cv::Mat& recordedFrame);
+    void captureFrame();
     void show() const;
 
     /**
@@ -26,15 +26,10 @@ public:
      */
     void threshold(cv::Mat &thresholdedBird, cv::Mat &thresholdedWorld) const;
     void mark(cv::Point loc, cv::Scalar color);
-    void circle(cv::Point center, int radius, cv::Scalar color);
+    void circle(Position center, Distance radius, cv::Scalar color);
 
     void mouseClick(int x, int y);
     
-    int getScreenHeight() const {
-        assert(boundariesKnown);
-        return m_frameHeight;
-    }
-
     int getScreenWidth() const {
         assert(boundariesKnown);
         return m_frameBottomRight.x - m_frameBottomLeft.x;
@@ -54,8 +49,23 @@ public:
         return m_currentFrame;
     }
 
+    Distance pixelYToPosition(int y) const {
+        assert(boundariesKnown);
+        return {static_cast<float>(y - (m_frameBottomLeft.y - m_frameHeight)) / getScreenWidth()};
+    }
+
+    Position pixelToPosition(cv::Point p) const {
+        assert(boundariesKnown);
+        return Position{static_cast<float>(p.x - m_frameBottomLeft.x) / getScreenWidth(),
+                        static_cast<float>(p.y - (m_frameBottomLeft.y - m_frameHeight)) / getScreenWidth()};
+    }
+
+    cv::Point positionToPixel(Position pos) {
+        return {static_cast<int>(getScreenWidth() * pos.x.val),
+                static_cast<int>(getScreenWidth() * pos.y.val)};
+    }
+
     bool boundariesKnown{false};
-    void drawLine(cv::Point a, cv::Point b, cv::Scalar color);
 
     void serialise(cv::FileStorage& storage) const;
     void deserialise(cv::FileStorage& storage);
@@ -63,11 +73,13 @@ public:
 private:
     void saveBoundaries() const;
     void loadBoundaries();
+    int distanceToPixels(Distance) const;
+    cv::Point positionToPixel(const Position&) const;
 
     cv::Mat m_currentFrame;
-    cv::VideoCapture m_cap{-1};
+    const std::reference_wrapper<VideoSource> m_source;
 
-    cv::Point m_clicks[3];
+    cv::Point m_clicks[3]; // for setting frame boundaries
     int m_currentClick{-1};
     cv::Point m_frameBottomLeft;
     cv::Point m_frameBottomRight;

@@ -1,10 +1,6 @@
 #include "display.hpp"
-#include "driver.hpp"
 #include "util.hpp"
 
-#include <iostream>
-#include <fstream>
-#include <unistd.h>
 #include <stdexcept>
 
 #include "opencv2/highgui/highgui.hpp"
@@ -46,7 +42,7 @@ void mouseCallback(int event, int x, int y, int /*flags*/, void* userdata) {
     }
 }
 
-Display::Display() {
+Display::Display(VideoSource& source) : m_source(source) {
     cv::namedWindow(FEED_NAME);
     cv::setMouseCallback(FEED_NAME, mouseCallback, this);
     loadBoundaries();
@@ -81,6 +77,19 @@ Display::Display() {
 
 Display::~Display() {}
 
+int Display::distanceToPixels(Distance dist) const {
+    assert(boundariesKnown);
+    return dist.val * getScreenWidth();
+}
+
+cv::Point Display::positionToPixel(const Position& pos) const {
+    assert(boundariesKnown);
+    auto ret = cv::Point(pos.x.val * getScreenWidth() + m_frameBottomLeft.x,
+                         m_frameBottomLeft.y - m_frameHeight + pos.y.val * getScreenWidth());
+
+
+}
+
 void openClose(const cv::Mat& imgHsvIn, cv::Mat& imgOut, int lowH, int highH, int lowS, int highS, int lowV, int highV) {
     cv::inRange(imgHsvIn, cv::Scalar(lowH, lowS, lowV), cv::Scalar(highH, highS, highV), imgOut); //Threshold the image
 
@@ -97,22 +106,8 @@ void openClose(const cv::Mat& imgHsvIn, cv::Mat& imgOut, int lowH, int highH, in
                                                                                 MORPHOLOGICAL_CLOSING_THRESHOLD)));
 }
 
-void Display::capture() {
-    if (!m_cap.isOpened()) { // if not successful, exit program
-        throw std::logic_error{"Cannot capture video: VideoCapture not open"};
-    }
-
-    cv::Mat temp;
-    if (!m_cap.read(temp)) { // read a new frame from camera
-        throw std::runtime_error{"Cannot read a frame from video stream"};
-    }
-
-    cv::flip(temp, m_currentFrame, -1);
-}
-
-void Display::playback(cv::Mat& recordedFrame) {
-    // we'll be marking the bird and the obstacles on this frame so need to clone
-    m_currentFrame = recordedFrame.clone();
+void Display::captureFrame() {
+    m_currentFrame = m_source.get().captureFrame().clone();
 }
 
 void Display::show() const {
@@ -132,17 +127,13 @@ void Display::threshold(cv::Mat& thresholdedBird, cv::Mat& thresholdedWorld) con
     cv::imshow("Combined", imgCombined); //TODO a bit cheeky to be displaying something in threshold()...
 }
 
-void Display::drawLine(cv::Point a, cv::Point b, cv::Scalar color) {
-    cv::line(m_currentFrame, a, b, color, 2);
-}
-
 void Display::mark(cv::Point loc, cv::Scalar color) {
     cv::line(m_currentFrame, cv::Point(loc.x - 20, loc.y), cv::Point(loc.x + 20, loc.y), color, 2);
     cv::line(m_currentFrame, cv::Point(loc.x, loc.y - 20), cv::Point(loc.x, loc.y + 20), color, 2);
 }
 
-void Display::circle(cv::Point center, int radius, cv::Scalar color) {
-    cv::circle(m_currentFrame, center, radius, color, 2);
+void Display::circle(Position center, Distance radius, cv::Scalar color) {
+    cv::circle(m_currentFrame, positionToPixel(center), distanceToPixels(radius), color, 2);
 }
 
 void Display::mouseClick(int x, int y) {
@@ -172,6 +163,7 @@ void Display::mouseClick(int x, int y) {
 void Display::saveBoundaries() const {
     cv::FileStorage fs(BOUNDARIES_FILE, cv::FileStorage::WRITE);
     serialise(fs);
+    fs.release();
 }
 
 void Display::loadBoundaries() {
@@ -179,6 +171,7 @@ void Display::loadBoundaries() {
     if (fs.isOpened()) {
         deserialise(fs);
     }
+    fs.release();
 }
 
 void Display::deserialise(cv::FileStorage& storage) {

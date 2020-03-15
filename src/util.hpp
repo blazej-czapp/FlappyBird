@@ -18,3 +18,8 @@
 const cv::Scalar CV_RED{0, 0, 255};
 const cv::Scalar CV_BLUE{255, 0, 0};
 const cv::Scalar CV_CYAN{255, 255, 0};
+
+//TODO figure this out, learn about ulps
+inline bool approxEqual(float a, float b, float e = 0.e-4f) {
+    return std::abs(a / b) < e;
+}

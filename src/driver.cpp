@@ -7,11 +7,8 @@
 
 #include "util.hpp"
 
-Driver::Driver(Arm& arm, Display& cam) : m_arm{arm}, m_disp{cam} {}
-//        m_horizontalMoveInQuantum(cam.getScreenWidth() * (double{TIME_QUANTUM.count()} / TIME_ACROSS_SCREEN.count())),
-//        m_jumpSpeed(cam.getScreenHeight() * RELATIVE_JUMP_HEIGHT, JUMP_DURATION),
-//        m_fallSpeed(cam.getScreenHeight(), TIME_TO_FALL_WHOLE_SCREEN),
-//        m_groundLevel(cam.getGroundLevel()) {}
+Driver::Driver(Arm& arm, Display& cam) : m_arm{arm}, m_disp{cam},
+        m_groundLevel(cam.pixelYToPosition(cam.getGroundLevel())) {}
 
 void Driver::markGap(const Gap& gap) const {
     m_disp.mark(gap.lowerLeft, cv::Scalar(255, 0, 0));
@@ -25,31 +22,32 @@ void Driver::drive(const FeatureDetector& detector) {
         return;
     }
 
-    cv::Point birdPos{detector.findBird()};
-    if (birdPos.x == -1 || birdPos.y == -1) {
+    std::optional<Position> birdPos = detector.findBird();
+    if (!birdPos) {
         return; // not initialised yet
     }
 
-    m_disp.circle(birdPos, m_disp.getScreenWidth() * Driver::RADIUS, CV_BLUE);
+    m_disp.circle(birdPos.value(), Driver::BIRD_RADIUS, CV_BLUE);
 
     //TODO make more robust
-    int x = birdPos.x + 20; // so we don't pick up the bird
-    int y = birdPos.y;
-	
+    // scaling x so we don't pick up the bird, the bird is always at the same position horizontally so we don't need
+    // to worry about the distance growing
+    Position pos{birdPos->x * 1.1, birdPos->y};
+
     int gapX, gapYUpper, gapYLower;
 
-    Gap leftGap, rightGap;
-    int noOfGaps = detector.findGapsAheadOf(x, leftGap, rightGap);
+    std::pair<std::optional<Gap>, std::optional<Gap>> gaps = detector.findGapsAheadOf(birdPos.value());
+    assert(!gaps.second || gaps.first); // detecting the right but not the left gap would be unexpected
 
-    if (noOfGaps > 0) {
-        markGap(leftGap);
+    if (gaps.first) {
+        markGap(gaps.first.value());
     }
-    if (noOfGaps == 2) {
-        markGap(rightGap);
+    if (gaps.second) {
+        markGap(gaps.second.value());
     }
 
-    if (noOfGaps == 0) {
-        // presumably the very beginning - maybe maintain altitude
+    if (!gaps.first && !gaps.second) {
+        // presumably at the beginning - maintain altitude?
         return;
     }
 
@@ -91,54 +89,67 @@ void Driver::drive(const FeatureDetector& detector) {
 //    }
 }
 
-std::shared_ptr<Driver::State> Driver::tapped(std::shared_ptr<Driver::State> state, std::chrono::system_clock::time_point when) const {
-    assert(state->canTap(when));
-    cv::Point nextPosition(state->position.x + m_horizontalMoveInQuantum, state->position.y - m_jumpSpeed * TIME_QUANTUM);
+std::shared_ptr<Driver::State> Driver::tapped(std::shared_ptr<Driver::State> parent, std::chrono::system_clock::time_point when) const {
+    assert(parent->canTap(when));
 
-    return std::make_shared<State>(state, nextPosition, when);
+    // just set the new upward speed, no acceleration involved
+    return std::make_shared<State>(parent, parent->calculatePositionAt(when), when, JUMP_SPEED, when);
 }
 
-std::shared_ptr<Driver::State> Driver::notTapped(std::shared_ptr<Driver::State> state, std::chrono::system_clock::time_point when) const {
-    if (when - state->lastTap < JUMP_DURATION) {
-        std::chrono::milliseconds flyUpFor{std::min((JUMP_DURATION - (when - state->lastTap)).count(), TIME_QUANTUM.count())};
-        std::chrono::milliseconds flyDownFor = TIME_QUANTUM - flyUpFor;
-        int heightDiff = (m_jumpSpeed * flyUpFor) - (m_fallSpeed * flyDownFor);
-        // assuming that a tap causes the bird to drive up at a constant speed for JUMP_DURATION,
-        // this may be too big an assumption
-        cv::Point nextPosition(state->position.x + m_horizontalMoveInQuantum, state->position.y - heightDiff);
-        return std::make_shared<State>(state, nextPosition, state->lastTap);
-    }
-    cv::Point nextPosition(state->position.x + m_horizontalMoveInQuantum, state->position.y + m_fallSpeed * TIME_QUANTUM);
-    std::make_shared<State>(state, nextPosition, state->lastTap);
+std::shared_ptr<Driver::State> Driver::notTapped(std::shared_ptr<Driver::State> parent, std::chrono::system_clock::time_point when) const {
+    return std::make_shared<State>(parent, parent->calculatePositionAt(when), when,
+                                   parent->calculateVerticalSpeedAt(when), parent->lastTap);
 }
 
-bool Driver::State::canTap(std::chrono::system_clock::time_point now) {
-    return now - lastTap > Arm::TAP_COOLDOWN;
+bool Driver::State::canTap(std::chrono::system_clock::time_point when) const {
+    return when - lastTap > Arm::TAP_COOLDOWN;
 }
 
 bool Driver::hitGround(const State& state) const {
-    return state.position.y > m_groundLevel;
+    return m_groundLevel < state.position.y;
 }
 
+//std::vector<std::pair<size_t, Position>> Driver::predictFreefall(std::vector<std::pair<std::chrono::milliseconds, cv::Mat>> recording,
+//                                                                 size_t currentFrame,
+//                                                                 const FeatureDetector& detector) {
+//    std::vector<cv::Point> prediction;
+//    std::optional<Position> birdPos = detector.findBird();
+//    Speed birdSpeed{0};
+//    auto currentTime = recording[currentFrame].first;
+//
+//    for (size_t i = currentFrame; i < recording.size() - 1; ++i) {
+//        auto timeDelta = recording[i + 1].first - recording[i].first;
+//        birdSpeed = birdSpeed + GRAVITY * timeDelta;
+//        auto nextPos = birdPos;
+//    }
+//}
 
-//// Bird::State
 
-Driver::State::State(cv::Point position, bool tapped) : position{position}, rootTapped{tapped} {
-//TODO last time default is fine, right?
+Driver::State::State(Position position, bool tapped) : position{position}, rootTapped{tapped} {}
+
+Driver::State::State(std::shared_ptr<State>& parent, Position position, std::chrono::system_clock::time_point time,
+                     Speed verticalSpeed, std::chrono::system_clock::time_point timeOfLastTap) :
+    rootTapped(parent->rootTapped), parent(parent), position(position), time(time), verticalSpeed(verticalSpeed),
+    lastTap(timeOfLastTap) {}
+
+Speed Driver::State::calculateVerticalSpeedAt(std::chrono::system_clock::time_point when) const {
+    return verticalSpeed + GRAVITY * std::chrono::duration_cast<std::chrono::milliseconds>(when - time);
 }
 
-// TODO make timeOfLastTap into timeOfLastTap?
-Driver::State::State(std::shared_ptr<State>& parent, cv::Point position,
-                     std::chrono::system_clock::time_point timeOfLastTap) :
-    parent(parent), position(position), lastTap(timeOfLastTap), rootTapped(parent->rootTapped) {}
+Position Driver::State::calculatePositionAt(std::chrono::system_clock::time_point when) const {
+    const Speed finalSpeed = calculateVerticalSpeedAt(when);
+    const Speed averageSpeed = (verticalSpeed + finalSpeed) / 2;
+    return {position.x + HORIZONTAL_SPEED * std::chrono::duration_cast<std::chrono::milliseconds>(when - time),
+            position.y + averageSpeed * TIME_QUANTUM};
+}
 
-//bool Driver::State::hasCrashed(int noOfGaps, const Gap& left, const Gap& right) {
+//bool Driver::State::hasCrashed(int noOfGaps, const Gap& left, const Gap& right) const {
 //    bool result = noOfGaps > 0 ? collidesWith(left) : false;
 //    result |= noOfGaps > 1 ? collidesWith(right) : false;
 //    return result || hitGround();
 //}
 //
-//bool Driver::State::collidesWith(const Gap& gap) {
+//bool Driver::State::collidesWith(const Gap& gap) const {
 //    return m_position.x >= gap.lowerLeft.x && m_position.x <= gap.lowerRight.x && (m_position.y > gap.lowerLeft.y || m_position.y < gap.upperLeft.y);
 //}
 
