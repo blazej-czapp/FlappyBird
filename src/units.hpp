@@ -2,6 +2,8 @@
 
 #include <chrono>
 
+using Time = std::chrono::system_clock::time_point;
+
 // these are not really units, couldn't think of a better name
 
 /// unit is is the screen width (I picked width because it's more reliable in the current setup, the camera doesn't

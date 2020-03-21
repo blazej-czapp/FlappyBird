@@ -45,14 +45,14 @@ private:
         /// used to initialize children
         State(std::shared_ptr<State>& parent,
               Position position,
-              std::chrono::system_clock::time_point time,
+              Time time,
               Speed verticalSpeed,
-              std::chrono::system_clock::time_point timeOfLastTap);
+              Time timeOfLastTap);
 
-        Position calculatePositionAt(std::chrono::system_clock::time_point when) const;
-        Speed calculateVerticalSpeedAt(std::chrono::system_clock::time_point when) const;
+        Position calculatePositionAt(Time when) const;
+        Speed calculateVerticalSpeedAt(Time when) const;
 
-        bool canTap(std::chrono::system_clock::time_point when) const;
+        bool canTap(Time when) const;
         bool hasCrashed(int noOfGaps, const Gap& left, const Gap& right) const;
         bool collidesWith(const Gap& gap) const;
 
@@ -60,12 +60,12 @@ private:
 
         std::shared_ptr<State> parent;
         Position position;
-        std::chrono::system_clock::time_point time;
+        Time time;
         Speed verticalSpeed; // negative when falling
-        std::chrono::system_clock::time_point lastTap;
+        Time lastTap;
     };
 
-    std::shared_ptr<State> tapped(std::shared_ptr<State> parent, std::chrono::system_clock::time_point when) const;
-    std::shared_ptr<State> notTapped(std::shared_ptr<State> parent, std::chrono::system_clock::time_point when) const;
+    std::shared_ptr<State> tapped(std::shared_ptr<State> parent, Time when) const;
+    std::shared_ptr<State> notTapped(std::shared_ptr<State> parent, Time when) const;
     bool hitGround(const State& state) const;
 };

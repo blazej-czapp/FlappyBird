@@ -89,19 +89,19 @@ void Driver::drive(const FeatureDetector& detector) {
 //    }
 }
 
-std::shared_ptr<Driver::State> Driver::tapped(std::shared_ptr<Driver::State> parent, std::chrono::system_clock::time_point when) const {
+std::shared_ptr<Driver::State> Driver::tapped(std::shared_ptr<Driver::State> parent, Time when) const {
     assert(parent->canTap(when));
 
     // just set the new upward speed, no acceleration involved
     return std::make_shared<State>(parent, parent->calculatePositionAt(when), when, JUMP_SPEED, when);
 }
 
-std::shared_ptr<Driver::State> Driver::notTapped(std::shared_ptr<Driver::State> parent, std::chrono::system_clock::time_point when) const {
+std::shared_ptr<Driver::State> Driver::notTapped(std::shared_ptr<Driver::State> parent, Time when) const {
     return std::make_shared<State>(parent, parent->calculatePositionAt(when), when,
                                    parent->calculateVerticalSpeedAt(when), parent->lastTap);
 }
 
-bool Driver::State::canTap(std::chrono::system_clock::time_point when) const {
+bool Driver::State::canTap(Time when) const {
     return when - lastTap > Arm::TAP_COOLDOWN;
 }
 
@@ -127,16 +127,16 @@ bool Driver::hitGround(const State& state) const {
 
 Driver::State::State(Position position, bool tapped) : position{position}, rootTapped{tapped} {}
 
-Driver::State::State(std::shared_ptr<State>& parent, Position position, std::chrono::system_clock::time_point time,
-                     Speed verticalSpeed, std::chrono::system_clock::time_point timeOfLastTap) :
+Driver::State::State(std::shared_ptr<State>& parent, Position position, Time time,
+                     Speed verticalSpeed, Time timeOfLastTap) :
     rootTapped(parent->rootTapped), parent(parent), position(position), time(time), verticalSpeed(verticalSpeed),
     lastTap(timeOfLastTap) {}
 
-Speed Driver::State::calculateVerticalSpeedAt(std::chrono::system_clock::time_point when) const {
+Speed Driver::State::calculateVerticalSpeedAt(Time when) const {
     return verticalSpeed + GRAVITY * std::chrono::duration_cast<std::chrono::milliseconds>(when - time);
 }
 
-Position Driver::State::calculatePositionAt(std::chrono::system_clock::time_point when) const {
+Position Driver::State::calculatePositionAt(Time when) const {
     const Speed finalSpeed = calculateVerticalSpeedAt(when);
     const Speed averageSpeed = (verticalSpeed + finalSpeed) / 2;
     return {position.x + HORIZONTAL_SPEED * std::chrono::duration_cast<std::chrono::milliseconds>(when - time),

@@ -11,7 +11,7 @@ class Recording : public VideoSource {
     const static std::string RECORDING_FILE;
     const static std::string FRAMES_KEY;
     const static std::string TIMESTAMPS_KEY;
-    const static std::chrono::system_clock::time_point NO_FRAME_START;
+    const static Time NO_FRAME_START;
 
     enum State {
         IDLE,
@@ -177,7 +177,7 @@ public:
 
 private:
     std::vector<std::pair<std::chrono::milliseconds, cv::Mat>> m_frames;
-    std::chrono::system_clock::time_point m_currentFrameStart = NO_FRAME_START;
+    Time m_currentFrameStart = NO_FRAME_START;
     size_t m_currentPlaybackFrame = 0;
     State m_state = State::IDLE;
     int m_playbackSpeed = 100; // percent
