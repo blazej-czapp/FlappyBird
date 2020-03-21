@@ -14,10 +14,9 @@
 
 int main(int argc, char** argv) {
     Recording recording;
-    WebCam camera;
-    std::reference_wrapper<VideoSource> source = camera;
-    Display display(source);
-//    recording.load(display);
+    //WebCam camera;
+    Display display(recording);
+    recording.load(display);
     Arm arm;
     Driver driver{arm, display};
     bool humanDriving = true;

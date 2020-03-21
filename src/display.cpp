@@ -82,14 +82,6 @@ int Display::distanceToPixels(Distance dist) const {
     return dist.val * getScreenWidth();
 }
 
-cv::Point Display::positionToPixel(const Position& pos) const {
-    assert(boundariesKnown);
-    auto ret = cv::Point(pos.x.val * getScreenWidth() + m_frameBottomLeft.x,
-                         m_frameBottomLeft.y - m_frameHeight + pos.y.val * getScreenWidth());
-
-
-}
-
 void openClose(const cv::Mat& imgHsvIn, cv::Mat& imgOut, int lowH, int highH, int lowS, int highS, int lowV, int highV) {
     cv::inRange(imgHsvIn, cv::Scalar(lowH, lowS, lowV), cv::Scalar(highH, highS, highV), imgOut); //Threshold the image
 

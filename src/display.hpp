@@ -54,15 +54,20 @@ public:
         return {static_cast<float>(y - (m_frameBottomLeft.y - m_frameHeight)) / getScreenWidth()};
     }
 
-    Position pixelToPosition(cv::Point p) const {
+    Distance pixelXToPosition(int x) const {
         assert(boundariesKnown);
-        return Position{static_cast<float>(p.x - m_frameBottomLeft.x) / getScreenWidth(),
-                        static_cast<float>(p.y - (m_frameBottomLeft.y - m_frameHeight)) / getScreenWidth()};
+        return {static_cast<float>(x - m_frameBottomLeft.x) / getScreenWidth()};
     }
 
-    cv::Point positionToPixel(Position pos) {
-        return {static_cast<int>(getScreenWidth() * pos.x.val),
-                static_cast<int>(getScreenWidth() * pos.y.val)};
+    Position pixelToPosition(cv::Point p) const {
+        assert(boundariesKnown);
+        return Position { pixelXToPosition(p.x), pixelYToPosition(p.y) };
+    }
+
+    cv::Point positionToPixel(const Position& pos) {
+        assert(boundariesKnown);
+        return {static_cast<int>(getScreenWidth() * pos.x.val + m_frameBottomLeft.x),
+                static_cast<int>(m_frameBottomLeft.y - m_frameHeight + getScreenWidth() * pos.y.val)};
     }
 
     bool boundariesKnown{false};
@@ -74,7 +79,6 @@ private:
     void saveBoundaries() const;
     void loadBoundaries();
     int distanceToPixels(Distance) const;
-    cv::Point positionToPixel(const Position&) const;
 
     cv::Mat m_currentFrame;
     const std::reference_wrapper<VideoSource> m_source;
