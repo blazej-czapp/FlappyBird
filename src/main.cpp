@@ -14,25 +14,24 @@
 
 int main(int argc, char** argv) {
     Recording recording;
-    //WebCam camera;
-    Display display(recording);
-    recording.load(display);
+    WebCam camera;
+    Display display(camera);
+//    Display display(recording);
+//    recording.load(display);
     Arm arm;
     Driver driver{arm, display};
     bool humanDriving = true;
 
     try {
-        bool recordFeed = false;
+        bool recordFeed = false; // TODO use Recording state
         // time at start of recording
         // OR
         // time at start of playback
-        std::chrono::system_clock::time_point currentFrameStart{};
-        size_t currentPlaybackFrame = 0;
-
-        bool playback = false;
+        Time currentFrameStart{};
 
         cv::Mat thresholdedBird;
         cv::Mat thresholdedWorld;
+//        auto prevT = Time().time_since_epoch().count(); // for calibration
         while (true) {
             if (recordFeed) {
                 recording.record(display.getCurrentFrame().clone());
@@ -43,6 +42,21 @@ int main(int argc, char** argv) {
 
             //TODO pulling it out of scope below for calibration, put it back when done
             FeatureDetector detector{thresholdedWorld, thresholdedBird, display};
+
+//            for calibrating motion constants
+//            std::optional<Position> birdPos = detector.findBird();
+//            if (birdPos && recording.getState() == Recording::PLAYBACK) {
+//                auto t = Time(recording.m_frames[recording.m_currentPlaybackFrame].first).time_since_epoch().count();
+//                if (t != prevT) {
+//                    std::cout << "actual y at time " << t << ": " << birdPos->y.val << std::endl;
+//                    prevT = t;
+//                }
+//                if (t == 446000000) {
+//                    driver.predictJump(recording.m_frames, recording.m_currentPlaybackFrame, detector);
+//                    break;
+//                }
+//            }
+
             if (!humanDriving) {
                 driver.drive(detector);
             }
@@ -72,9 +86,6 @@ int main(int argc, char** argv) {
                     std::cout << "Recording feed" << std::endl;
                     recording.startRecording();
                 }
-
-            } else if (key == 'p' && playback) {
-                //driver.predictFreefall(recording, currentPlaybackFrame, detector);
             }
         }
     } catch (std::exception& ex) {

@@ -37,7 +37,7 @@ struct Position {
     Distance y; // proportion of screen WIDTH (see comment for Distance) from top of active area
 };
 
-/// per millisecond
+/// per millisecond, positive is down
 struct Speed {
     /// speed * time = distance
     Distance operator*(std::chrono::milliseconds duration) const {
@@ -65,3 +65,4 @@ struct Acceleration {
 
     Speed speed;
 };
+

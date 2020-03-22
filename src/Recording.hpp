@@ -13,15 +13,19 @@ class Recording : public VideoSource {
     const static std::string TIMESTAMPS_KEY;
     const static Time NO_FRAME_START;
 
+    /// the only integral type OpenCV's serialization supports is int
+    using TimestampSerializationT = int;
+public:
     enum State {
         IDLE,
         PLAYBACK,
         RECORDING
     };
 
-    /// the only integral type OpenCV's serialization supports is int
-    using TimestampSerializationT = int;
-public:
+    State getState() const {
+        return m_state;
+    }
+
     bool load(Display& display) {
         assert(m_state == IDLE);
 
@@ -126,6 +130,9 @@ public:
     }
 
     void startRecording() {
+        // TODO this should be a separate member (separate for recording, separate for playback). Do we need a separate
+        // type for each? Note this isn't updated when recording frames, so it's really "start of recording", not of
+        // current frame.
         m_currentFrameStart = std::chrono::system_clock::now();
         m_state = RECORDING;
     }
@@ -175,7 +182,8 @@ public:
         m_currentPlaybackFrame = 0;
     }
 
-private:
+//private: commented out for calibration
+    // time is from the start of the recording
     std::vector<std::pair<std::chrono::milliseconds, cv::Mat>> m_frames;
     Time m_currentFrameStart = NO_FRAME_START;
     size_t m_currentPlaybackFrame = 0;

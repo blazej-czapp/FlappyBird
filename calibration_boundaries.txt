@@ -1,0 +1,5 @@
+%YAML:1.0
+---
+bottom_left: [ 145, 476 ]
+bottom_right: [ 516, 476 ]
+frame_height: 471

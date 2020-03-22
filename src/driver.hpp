@@ -15,10 +15,12 @@ constexpr std::chrono::milliseconds TIME_ACROSS_SCREEN{1800};
 constexpr std::chrono::milliseconds TIME_QUANTUM{100};
 constexpr Speed HORIZONTAL_SPEED{{1.f/TIME_ACROSS_SCREEN.count()}};
 
-// tap just sets a new vertical speed, it's not an acceleration
-constexpr Speed JUMP_SPEED{{-0.01}}; // TODO random value, measure it
-
-constexpr Acceleration GRAVITY{{10}}; // position grows down, gravity is positive
+// constants calibrated using calibration_recording.xml and calibration_boundaries.txt (the boundaries were from
+// a different recording and the screen is a touch wider than the boundaries, may need to tweak that and recalibrate)
+// TODO calibrate again to minimise error from "tap before frame capture"
+constexpr Speed JUMP_SPEED{{-0.00103}}; // tap just sets a new vertical speed
+constexpr Speed TERMINAL_VELOCITY{{0.00151}};
+constexpr Acceleration GRAVITY{{0.00000343}}; // position grows down, gravity is positive
 
 class Driver {
 public:
@@ -27,9 +29,13 @@ public:
 
     static constexpr Distance BIRD_RADIUS{0.05f};
 
-//    std::vector<std::pair<size_t, Position>> predictFreefall(std::vector<std::pair<std::chrono::milliseconds, cv::Mat>> recording,
-//                                                             size_t currentFrame,
-//                                                             const FeatureDetector& detector);
+    void predictFreefall(const std::vector<std::pair<std::chrono::milliseconds, cv::Mat>>& recording,
+                         size_t startFrame,
+                         const FeatureDetector& detector);
+
+    void predictJump(const std::vector<std::pair<std::chrono::milliseconds, cv::Mat>>& recording,
+                     size_t startFrame,
+                     const FeatureDetector& detector);
 
 private:
     void markGap(const Gap& gap) const;
