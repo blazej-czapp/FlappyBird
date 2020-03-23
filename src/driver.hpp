@@ -10,10 +10,8 @@
 #include "featureDetector.hpp"
 #include "units.hpp"
 
-// all times in seconds
-constexpr std::chrono::milliseconds TIME_ACROSS_SCREEN{1800};
-constexpr std::chrono::milliseconds TIME_QUANTUM{100};
-constexpr Speed HORIZONTAL_SPEED{{1.f/TIME_ACROSS_SCREEN.count()}};
+// it takes approx 1.632s to cover the unit distance, speed is per millisecond
+constexpr Speed HORIZONTAL_SPEED{{1.f/1632}};
 
 // constants calibrated using calibration_recording.xml and calibration_boundaries.txt (the boundaries were from
 // a different recording and the screen is a touch wider than the boundaries, may need to tweak that and recalibrate)
@@ -37,6 +35,8 @@ public:
                      const FeatureDetector& detector);
 
 private:
+    static constexpr const std::chrono::milliseconds TIME_QUANTUM{100};
+
     void markGap(const Gap& gap) const;
 
     Distance m_groundLevel;
