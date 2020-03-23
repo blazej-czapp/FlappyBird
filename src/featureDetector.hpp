@@ -15,7 +15,7 @@ class Display;
  */
 class FeatureDetector {
 public:
-    FeatureDetector(const cv::Mat& world, const cv::Mat& bird, Display& cam);
+    FeatureDetector(const cv::Mat& world, const cv::Mat& bird, Display& disp);
     FeatureDetector(const FeatureDetector&) = delete;
     FeatureDetector(FeatureDetector&&) = delete;
 

@@ -1,5 +1,6 @@
 %YAML:1.0
 ---
-bottom_left: [ 145, 476 ]
-bottom_right: [ 516, 476 ]
-frame_height: 471
+bottom_left: [ 141, 472 ]
+bottom_right: [ 520, 472 ]
+viewport_height: 465
+unit_length: 281

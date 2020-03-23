@@ -30,18 +30,13 @@ public:
 
     void mouseClick(int x, int y);
     
-    int getScreenWidth() const {
-        assert(boundariesKnown);
-        return m_frameBottomRight.x - m_frameBottomLeft.x;
-    }
-
     int getGroundLevel() const {
-        assert(boundariesKnown);
+        assert(boundariesKnown());
         return m_frameBottomLeft.y;
     }
 
     int getRightBoundary() const {
-        assert(boundariesKnown);
+        assert(boundariesKnown());
         return m_frameBottomRight.x;
     }
 
@@ -50,27 +45,34 @@ public:
     }
 
     Distance pixelYToPosition(int y) const {
-        assert(boundariesKnown);
-        return {static_cast<float>(y - (m_frameBottomLeft.y - m_frameHeight)) / getScreenWidth()};
+        assert(boundariesKnown());
+        return {static_cast<float>(y - (m_frameBottomLeft.y - m_frameHeight)) / m_unitLength};
     }
 
     Distance pixelXToPosition(int x) const {
-        assert(boundariesKnown);
-        return {static_cast<float>(x - m_frameBottomLeft.x) / getScreenWidth()};
+        assert(boundariesKnown());
+        return {static_cast<float>(x - m_frameBottomLeft.x) / m_unitLength};
     }
 
     Position pixelToPosition(cv::Point p) const {
-        assert(boundariesKnown);
+        assert(boundariesKnown());
         return Position { pixelXToPosition(p.x), pixelYToPosition(p.y) };
     }
 
     cv::Point positionToPixel(const Position& pos) {
-        assert(boundariesKnown);
-        return {static_cast<int>(getScreenWidth() * pos.x.val + m_frameBottomLeft.x),
-                static_cast<int>(m_frameBottomLeft.y - m_frameHeight + getScreenWidth() * pos.y.val)};
+        assert(boundariesKnown());
+        return {static_cast<int>(m_unitLength * pos.x.val + m_frameBottomLeft.x),
+                static_cast<int>(m_frameBottomLeft.y - m_frameHeight + m_unitLength * pos.y.val)};
     }
 
-    bool boundariesKnown{false};
+    int distanceToPixels(Distance dist) const {
+        assert(boundariesKnown());
+        return dist.val * m_unitLength;
+    }
+
+    bool boundariesKnown() const {
+        return m_boundariesKnown;
+    };
 
     void serialise(cv::FileStorage& storage) const;
     void deserialise(cv::FileStorage& storage);
@@ -78,14 +80,15 @@ public:
 private:
     void saveBoundaries() const;
     void loadBoundaries();
-    int distanceToPixels(Distance) const;
 
     cv::Mat m_currentFrame;
     const std::reference_wrapper<VideoSource> m_source;
 
-    cv::Point m_clicks[3]; // for setting frame boundaries
-    int m_currentClick{-1};
+    bool m_boundariesKnown{false};
+    int m_currentClick{0};
     cv::Point m_frameBottomLeft;
     cv::Point m_frameBottomRight;
+    int m_refBoxLeft; // temp for saving the left edge of the reference unit box (the stats box) while setting boundaries
+    int m_unitLength;
     int m_frameHeight;
 };

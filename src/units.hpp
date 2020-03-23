@@ -6,8 +6,9 @@ using Time = std::chrono::system_clock::time_point;
 
 // these are not really units, couldn't think of a better name
 
-/// unit is is the screen width (I picked width because it's more reliable in the current setup, the camera doesn't
-/// quite capture the top and bottom of the screen reliably, sides are fine)
+/// Unit is is the width of the rating/score box under the GAME OVER sign (inclusive of the outermost pixels, measured
+/// towards the bottom when it's more straight with this camera). This should be the most robust with respect to
+/// changing camera position and resolution than screen width.
 struct Distance {
     Distance operator*(float m) const {
         return Distance{val * m};

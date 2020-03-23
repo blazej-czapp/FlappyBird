@@ -18,7 +18,7 @@ void Driver::markGap(const Gap& gap) const {
 }
 
 void Driver::drive(const FeatureDetector& detector) {
-    if (!m_disp.boundariesKnown) {
+    if (!m_disp.boundariesKnown()) {
         return;
     }
 

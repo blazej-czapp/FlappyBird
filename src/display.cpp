@@ -34,7 +34,8 @@ int MORPHOLOGICAL_CLOSING_THRESHOLD = 20; // high values slow things down
 const static std::string BOUNDARIES_FILE = "boundaries.txt";
 const static std::string BOTTOM_LEFT_KEY = "bottom_left";
 const static std::string BOTTOM_RIGHT_KEY = "bottom_right";
-const static std::string FRAME_HEIGHT_KEY = "frame_height"; // active area, not necessarily the whole frame
+const static std::string VIEWPORT_HEIGHT_KEY = "viewport_height";
+const static std::string UNIT_LENGTH_KEY = "unit_length";
 
 void mouseCallback(int event, int x, int y, int /*flags*/, void* userdata) {
     if (event == cv::EVENT_LBUTTONDOWN) {
@@ -76,11 +77,6 @@ Display::Display(VideoSource& source) : m_source(source) {
 }
 
 Display::~Display() {}
-
-int Display::distanceToPixels(Distance dist) const {
-    assert(boundariesKnown);
-    return dist.val * getScreenWidth();
-}
 
 void openClose(const cv::Mat& imgHsvIn, cv::Mat& imgOut, int lowH, int highH, int lowS, int highS, int lowV, int highV) {
     cv::inRange(imgHsvIn, cv::Scalar(lowH, lowS, lowV), cv::Scalar(highH, highS, highV), imgOut); //Threshold the image
@@ -129,25 +125,40 @@ void Display::circle(Position center, Distance radius, cv::Scalar color) {
 }
 
 void Display::mouseClick(int x, int y) {
-    m_currentClick = (m_currentClick + 1) % 3;
-    m_clicks[m_currentClick] = cv::Point(x, y);
+    m_boundariesKnown = false;
+    // viewport boundaries are for active area, probably not the whole frame (e.g. excluding stuff around the tablet)
     switch (m_currentClick) {
         case 0:
-            mark(m_clicks[m_currentClick], cv::Scalar(255, 0, 0)); // first left
+            m_frameBottomLeft = cv::Point(x, y);
+            mark(m_frameBottomLeft, CV_RED);
+            std::cout << "viewport bottom left: " << m_frameBottomLeft << std::endl;
             break;
         case 1:
-            mark(m_clicks[m_currentClick], cv::Scalar(0, 255, 0)); // then right
+            m_frameBottomRight = cv::Point(x, y);
+            mark(m_frameBottomRight, CV_RED);
+            std::cout << "viewport bottom right: " << m_frameBottomRight << std::endl;
             break;
         case 2:
-            mark(m_clicks[m_currentClick], cv::Scalar(0, 0, 255)); // then top
+            m_frameHeight = m_frameBottomLeft.y - y;
+            mark(cv::Point(x, y), CV_RED); // anywhere along the top edge is fine
+            std::cout << "viewport top: " << m_frameHeight << std::endl;
+            break;
+        case 3:
+            m_refBoxLeft = x;
+            mark(cv::Point(x, y), CV_BLUE);
+            std::cout << "stats box left: " << m_refBoxLeft << std::endl;
+            break;
+        case 4:
+            m_unitLength = x - m_refBoxLeft;
+            mark(cv::Point(x, y), CV_BLUE);
+            std::cout << "stats box right: " << x << std::endl;
             break;
     }
 
-    if (m_currentClick == 2) {
-        m_frameBottomLeft = m_clicks[0];
-        m_frameBottomRight = m_clicks[1];
-        m_frameHeight = m_frameBottomLeft.y - m_clicks[2].y;
-        boundariesKnown = true;
+    m_currentClick = (m_currentClick + 1) % 5;
+
+    if (m_currentClick == 0) {
+        m_boundariesKnown = true;
         saveBoundaries();
     }
 }
@@ -169,12 +180,13 @@ void Display::loadBoundaries() {
 void Display::deserialise(cv::FileStorage& storage) {
     storage[BOTTOM_LEFT_KEY] >> m_frameBottomLeft;
     storage[BOTTOM_RIGHT_KEY] >> m_frameBottomRight;
-    storage[FRAME_HEIGHT_KEY] >> m_frameHeight;
-    boundariesKnown = true;
+    storage[VIEWPORT_HEIGHT_KEY] >> m_frameHeight;
+    storage[UNIT_LENGTH_KEY] >> m_unitLength;
+    m_boundariesKnown = true;
 }
 
 void Display::serialise(cv::FileStorage& storage) const {
-    assert(boundariesKnown);
-    storage << BOTTOM_LEFT_KEY << m_frameBottomLeft << BOTTOM_RIGHT_KEY << m_frameBottomRight <<
-               FRAME_HEIGHT_KEY << m_frameHeight;
+    assert(boundariesKnown());
+    storage << BOTTOM_LEFT_KEY << m_frameBottomLeft << BOTTOM_RIGHT_KEY << m_frameBottomRight
+            << VIEWPORT_HEIGHT_KEY << m_frameHeight << UNIT_LENGTH_KEY << m_unitLength;
 }

@@ -10,13 +10,13 @@
 
 const int NOISE_BUFFER = 16;
 const int SEARCH_WINDOW_SIZE = 40;
-const float PIPE_WIDTH = 0.18f; // as proportion of screen width
-const float GAP_HEIGHT = 0.35f; // as proportion of screen width
+constexpr Distance PIPE_WIDTH{0.237f};
+constexpr Distance GAP_HEIGHT{0.460f};
 
-FeatureDetector::FeatureDetector(const cv::Mat &map, const cv::Mat &bird, Display &cam) :
-        m_thresholdedMap{map}, m_thresholdedBird{bird}, m_display{cam}, m_lowSweepY{cam.getGroundLevel() - 10},
-        m_pipeWidth(cam.getScreenWidth() * PIPE_WIDTH), m_pipeSpacing(m_pipeWidth * 1.5f),
-        m_gapHeight(cam.getScreenWidth() * GAP_HEIGHT) {}
+FeatureDetector::FeatureDetector(const cv::Mat &map, const cv::Mat &bird, Display &disp) :
+        m_thresholdedMap{map}, m_thresholdedBird{bird}, m_display{disp}, m_lowSweepY{disp.getGroundLevel() - 10},
+        m_pipeWidth(disp.distanceToPixels(PIPE_WIDTH)), m_pipeSpacing(m_pipeWidth * 1.5f),
+        m_gapHeight(disp.distanceToPixels(GAP_HEIGHT)) {}
 
 int FeatureDetector::lookUp(int x, int y, int lookFor) const {
     for (int row = y; row > 0; --row) {
@@ -89,7 +89,7 @@ std::optional<Gap> FeatureDetector::getGapAt(int x) const {
 }
 
 std::optional<Gap> FeatureDetector::findFirstGapAheadOf(int x) const {
-    assert(m_display.boundariesKnown);
+    assert(m_display.boundariesKnown());
     const uchar *row = m_thresholdedMap.ptr<uchar>(m_lowSweepY);
     for (int searchX = x; searchX < m_display.getRightBoundary() -
                                     40; searchX += SEARCH_WINDOW_SIZE) { // -40 for the screen boundary noise (plus it doesn't matter anyway)

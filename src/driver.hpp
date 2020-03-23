@@ -17,10 +17,9 @@ constexpr Speed HORIZONTAL_SPEED{{1.f/TIME_ACROSS_SCREEN.count()}};
 
 // constants calibrated using calibration_recording.xml and calibration_boundaries.txt (the boundaries were from
 // a different recording and the screen is a touch wider than the boundaries, may need to tweak that and recalibrate)
-// TODO calibrate again to minimise error from "tap before frame capture"
-constexpr Speed JUMP_SPEED{{-0.00103}}; // tap just sets a new vertical speed
-constexpr Speed TERMINAL_VELOCITY{{0.00151}};
-constexpr Acceleration GRAVITY{{0.00000343}}; // position grows down, gravity is positive
+constexpr Speed JUMP_SPEED{{-0.00139}}; // tap just sets a new vertical speed, may need some more calibration (increasing abs. value)
+constexpr Speed TERMINAL_VELOCITY{{0.00198}};
+constexpr Acceleration GRAVITY{{0.00000451}}; // position grows down, gravity is positive
 
 class Driver {
 public:
