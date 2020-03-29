@@ -26,16 +26,16 @@ public:
 
     static constexpr Distance BIRD_RADIUS{0.05f};
 
-    void predictFreefall(const std::vector<std::pair<std::chrono::milliseconds, cv::Mat>>& recording,
+    void predictFreefall(const std::vector<std::pair<Time::duration, cv::Mat>>& recording,
                          size_t startFrame,
                          const FeatureDetector& detector);
 
-    void predictJump(const std::vector<std::pair<std::chrono::milliseconds, cv::Mat>>& recording,
+    void predictJump(const std::vector<std::pair<Time::duration, cv::Mat>>& recording,
                      size_t startFrame,
                      const FeatureDetector& detector);
 
 private:
-    static constexpr const std::chrono::milliseconds TIME_QUANTUM{100};
+    static constexpr const Time::duration TIME_QUANTUM{100};
 
     void markGap(const Gap& gap) const;
 

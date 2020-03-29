@@ -51,7 +51,7 @@ int main(int argc, char** argv) {
 //                    std::cout << "actual y at time " << t << ": " << birdPos->y.val << std::endl;
 //                    prevT = t;
 //                }
-//                if (t == 446000000) {
+//                if (t == 384) {
 //                    driver.predictJump(recording.m_frames, recording.m_currentPlaybackFrame, detector);
 //                    break;
 //                }

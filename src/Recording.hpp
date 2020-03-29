@@ -6,6 +6,7 @@
 #include <opencv2/core/core.hpp>
 
 #include "display.hpp"
+#include "util.hpp"
 
 class Recording : public VideoSource {
     const static std::string RECORDING_FILE;
@@ -52,7 +53,7 @@ public:
             return false;
         }
 
-        const std::chrono::milliseconds placeholder{};
+        const Time::duration placeholder{};
         cv::FileNodeIterator framesEnd = frames.end();
         for (cv::FileNodeIterator it = frames.begin(); it != framesEnd; ++it)
         {
@@ -85,7 +86,7 @@ public:
         {
             TimestampSerializationT timestamp;
             *it >> timestamp;
-            m_frames[it - timestampsBegin].first = std::chrono::milliseconds{timestamp};
+            m_frames[it - timestampsBegin].first = Time::duration{timestamp};
         }
 
         // scene boundaries are loaded as they were at the time of recording
@@ -133,14 +134,14 @@ public:
         // TODO this should be a separate member (separate for recording, separate for playback). Do we need a separate
         // type for each? Note this isn't updated when recording frames, so it's really "start of recording", not of
         // current frame.
-        m_currentFrameStart = std::chrono::system_clock::now();
+        m_currentFrameStart = toTime(std::chrono::system_clock::now());
         m_state = RECORDING;
     }
 
     void record(const cv::Mat& frame) {
         assert(m_state == RECORDING);
         m_frames.push_back(std::make_pair(
-                std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - m_currentFrameStart),
+                toTime(std::chrono::system_clock::now()) - m_currentFrameStart,
                 frame));
     }
 
@@ -148,28 +149,28 @@ public:
     const cv::Mat& captureFrame() override {
         assert(m_loaded);
 
+        Time now = toTime(std::chrono::system_clock::now());
         // if this is the first frame we're capturing, start counting time from here
         if (m_currentFrameStart == NO_FRAME_START) {
-            m_currentFrameStart = std::chrono::system_clock::now();
+            m_currentFrameStart = now;
             m_currentPlaybackFrame = 0;
         }
 
-        Time now = std::chrono::system_clock::now();
-        std::chrono::milliseconds currentFrameElapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_currentFrameStart);
+        Time::duration currentFrameElapsed = now - m_currentFrameStart;
 
         // This is interesting - by multiplying a std::chrono::milliseconds (which is std::chrono::duration<int64_t>)
-        // by a float, we obtain a std::chrono::duration<float>. If m_playbackSpeed is 0, betweenFrameDelta.count() is
-        // inf and everything behaves as expected (we get a pause).
-        std::chrono::milliseconds betweenFrameDelta =
-                std::chrono::duration_cast<std::chrono::milliseconds>((m_frames[m_currentPlaybackFrame + 1].first
-                                                                       - m_frames[m_currentPlaybackFrame].first)
-                                                                      * (100.f / m_playbackSpeed));
+        // by a float, we obtain a std::chrono::duration<float> (as long as type is auto). If m_playbackSpeed is 0,
+        // betweenFrameDelta.count() is inf and everything behaves as expected (we get a pause).
+        auto betweenFrameDelta = (m_frames[m_currentPlaybackFrame + 1].first - m_frames[m_currentPlaybackFrame].first)
+                                 * (100.f / m_playbackSpeed);
 
         if (currentFrameElapsed > betweenFrameDelta) {
             // last frame isn't displayed (we don't know its duration) - it's only used to determine
             // the duration of the penultimate frame
             m_currentPlaybackFrame = (m_currentPlaybackFrame + 1) % (m_frames.size() - 1);
-            m_currentFrameStart = now - (currentFrameElapsed - betweenFrameDelta);
+            // cast betweenFrameDelta back from duration<float>
+            m_currentFrameStart = now - (currentFrameElapsed
+                                         - std::chrono::duration_cast<Time::duration>(betweenFrameDelta));
         }
 
         return m_frames[m_currentPlaybackFrame].second;
@@ -184,7 +185,7 @@ public:
 
 //private: commented out for calibration
     // time is from the start of the recording
-    std::vector<std::pair<std::chrono::milliseconds, cv::Mat>> m_frames;
+    std::vector<std::pair<Time::duration, cv::Mat>> m_frames;
     Time m_currentFrameStart = NO_FRAME_START;
     size_t m_currentPlaybackFrame = 0;
     State m_state = State::IDLE;

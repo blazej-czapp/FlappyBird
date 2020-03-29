@@ -22,10 +22,10 @@ Motion predictMotion(Position posNow, Speed speedNow, Time::duration deltaT) {
         // and apply constant speed from then. We want t such that:
         // projectedSpeed - GRAVITY * t = TERMINAL_VELOCITY
         // so:
-        std::chrono::milliseconds t(static_cast<int>((projectedSpeed - TERMINAL_VELOCITY).val.val / GRAVITY.speed.val.val));
+        Time::duration t(static_cast<int>((projectedSpeed - TERMINAL_VELOCITY).val.val / GRAVITY.speed.val.val));
 
         // if we started at terminal velocity, the period should be equal to deltaT, otherwise it should be less
-        assert(std::chrono::milliseconds{0} <= t && t <= deltaT);
+        assert(Time::duration(0) <= t && t <= deltaT);
 
         // overall average speed is the weighted average of avg. speed under acceleration and the terminal velocity
         // period that (maybe) follows (proportional to the time each lasted)
@@ -146,7 +146,7 @@ bool Driver::hitGround(const State& state) const {
 }
 
 // predicting from recording to calibrate motion constants
-void predictPosition(const std::vector<std::pair<std::chrono::milliseconds, cv::Mat>>& recording,
+void predictPosition(const std::vector<std::pair<Time::duration, cv::Mat>>& recording,
                    size_t startFrame,
                    const FeatureDetector& detector,
                    Speed initialSpeed) {
@@ -155,11 +155,11 @@ void predictPosition(const std::vector<std::pair<std::chrono::milliseconds, cv::
         return;
     }
 
-    std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> startTime(recording[startFrame].first);
+    Time::duration startTime(recording[startFrame].first);
 
     for (size_t i = startFrame + 1; i < recording.size() - 1; ++i) {
         const auto timeDelta = recording[i].first - recording[startFrame].first;
-        const Motion projected = predictMotion(birdPos.value(), initialSpeed, recording[i].first - std::chrono::milliseconds(startTime.time_since_epoch()));
+        const Motion projected = predictMotion(birdPos.value(), initialSpeed, recording[i].first - startTime);
 
         std::cout << "" << Time(recording[i].first).time_since_epoch().count() << " " << projected.position.y.val << std::endl;
     }
@@ -167,16 +167,16 @@ void predictPosition(const std::vector<std::pair<std::chrono::milliseconds, cv::
 
 // used for calibrating the JUMP_SPEED, GRAVITY and TERMINAL_VELOCITY constants, presumably from a moment of jump
 // (in practice, the true jump start can happen between frames so worth trying this a few times)
-void Driver::predictJump(const std::vector<std::pair<std::chrono::milliseconds, cv::Mat>>& recording,
+void Driver::predictJump(const std::vector<std::pair<Time::duration, cv::Mat>>& recording,
                          size_t startFrame,
                          const FeatureDetector& detector) {
-    predictPosition(recording, startFrame, detector, JUMP_SPEED);
+    predictPosition(recording, startFrame, detector, JUMP_SPEED + Speed{0.00005});
 }
 
 
 // used for calibrating the GRAVITY and TERMINAL_VELOCITY constants, presumably from a standstill point just before freefall
 // (in practice, the true peak can happen between frames so using an estimate for the true speed at the actual frame)
-void Driver::predictFreefall(const std::vector<std::pair<std::chrono::milliseconds, cv::Mat>>& recording,
+void Driver::predictFreefall(const std::vector<std::pair<Time::duration, cv::Mat>>& recording,
                              size_t startFrame,
                              const FeatureDetector& detector) {
     predictPosition(recording, startFrame, detector, Speed{0.00011});
