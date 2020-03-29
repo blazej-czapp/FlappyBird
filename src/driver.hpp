@@ -45,17 +45,18 @@ private:
     Display& m_disp;
 
     struct State {
-        /// used to initialize root
-        State(Position position, bool tapped);
-        /// used to initialize children
-        State(std::shared_ptr<State>& parent,
-              Position position,
+        State(std::shared_ptr<State>&& parent,
+              Motion motion,
               Time time,
-              Speed verticalSpeed,
-              Time timeOfLastTap);
+              Time lastTap,
+              bool rootTapped) : parent(parent), motion(motion), time(time), lastTap(lastTap), rootTapped(rootTapped) {}
 
-        Position calculatePositionAt(Time when) const;
-        Speed calculateVerticalSpeedAt(Time when) const;
+        State(std::shared_ptr<State>&& parent,
+              Motion motion,
+              Time time,
+              Time lastTap) : State(std::move(parent), motion, time, lastTap, parent->rootTapped) {}
+
+        Motion calculateMotionAt(Time when) const;
 
         bool canTap(Time when) const;
         bool hasCrashed(int noOfGaps, const Gap& left, const Gap& right) const;
@@ -64,9 +65,8 @@ private:
         bool rootTapped; // so we know whether to tap or not after we find a good path
 
         std::shared_ptr<State> parent;
-        Position position;
+        Motion motion;
         Time time;
-        Speed verticalSpeed; // negative when falling
         Time lastTap;
     };
 

@@ -7,6 +7,43 @@
 
 #include "util.hpp"
 
+namespace {
+
+Speed projectVerticalSpeed(Speed startingSpeed, Time::duration deltaT) {
+    return startingSpeed + GRAVITY * deltaT;
+}
+
+Motion predictMotion(Position posNow, Speed speedNow, Time::duration deltaT) {
+    assert(speedNow <= TERMINAL_VELOCITY);
+    Speed projectedSpeed = projectVerticalSpeed(speedNow, deltaT);
+
+    if (projectedSpeed > TERMINAL_VELOCITY) {
+        // If projected speed exceeds TV, we need to find how long it's been the case (t), rewind to that moment
+        // and apply constant speed from then. We want t such that:
+        // projectedSpeed - GRAVITY * t = TERMINAL_VELOCITY
+        // so:
+        std::chrono::milliseconds t(static_cast<int>((projectedSpeed - TERMINAL_VELOCITY).val.val / GRAVITY.speed.val.val));
+
+        // if we started at terminal velocity, the period should be equal to deltaT, otherwise it should be less
+        assert(std::chrono::milliseconds{0} <= t && t <= deltaT);
+
+        // overall average speed is the weighted average of avg. speed under acceleration and the terminal velocity
+        // period that (maybe) follows (proportional to the time each lasted)
+        Speed averageSpeedUnderAcceleration = (speedNow + projectVerticalSpeed(speedNow, deltaT - t)) / 2;
+        Speed averageSpeed = averageSpeedUnderAcceleration * (static_cast<float>((deltaT - t).count()) / deltaT.count())
+                             + TERMINAL_VELOCITY * (static_cast<float>(t.count()) / deltaT.count());
+
+        return {{posNow.x + HORIZONTAL_SPEED * deltaT, posNow.y + averageSpeed * deltaT},
+                TERMINAL_VELOCITY};
+    } else {
+        const Speed averageSpeed = (speedNow + projectedSpeed) / 2;
+        return {{posNow.x + HORIZONTAL_SPEED * deltaT, posNow.y + averageSpeed * deltaT},
+                projectedSpeed};
+    }
+}
+
+}
+
 Driver::Driver(Arm& arm, Display& cam) : m_arm{arm}, m_disp{cam},
         m_groundLevel(cam.pixelYToPosition(cam.getGroundLevel())) {}
 
@@ -92,13 +129,12 @@ void Driver::drive(const FeatureDetector& detector) {
 std::shared_ptr<Driver::State> Driver::tapped(std::shared_ptr<Driver::State> parent, Time when) const {
     assert(parent->canTap(when));
 
-    // just set the new upward speed, no acceleration involved
-    return std::make_shared<State>(parent, parent->calculatePositionAt(when), when, JUMP_SPEED, when);
+    // TODO this is wrong, motion calculation doesn't take the tap into account
+    return std::make_shared<State>(std::move(parent), parent->calculateMotionAt(when), when, when);
 }
 
 std::shared_ptr<Driver::State> Driver::notTapped(std::shared_ptr<Driver::State> parent, Time when) const {
-    return std::make_shared<State>(parent, parent->calculatePositionAt(when), when,
-                                   parent->calculateVerticalSpeedAt(when), parent->lastTap);
+    return std::make_shared<State>(std::move(parent), parent->calculateMotionAt(when), when, parent->lastTap);
 }
 
 bool Driver::State::canTap(Time when) const {
@@ -106,15 +142,11 @@ bool Driver::State::canTap(Time when) const {
 }
 
 bool Driver::hitGround(const State& state) const {
-    return m_groundLevel < state.position.y;
-}
-
-Speed projectVerticalSpeed(Speed startingSpeed, Time now, Time when) {
-    return startingSpeed + GRAVITY * std::chrono::duration_cast<std::chrono::milliseconds>(when - now);
+    return m_groundLevel < state.motion.position.y;
 }
 
 // predicting from recording to calibrate motion constants
-void predictMotion(const std::vector<std::pair<std::chrono::milliseconds, cv::Mat>>& recording,
+void predictPosition(const std::vector<std::pair<std::chrono::milliseconds, cv::Mat>>& recording,
                    size_t startFrame,
                    const FeatureDetector& detector,
                    Speed initialSpeed) {
@@ -123,33 +155,13 @@ void predictMotion(const std::vector<std::pair<std::chrono::milliseconds, cv::Ma
         return;
     }
 
-    Time startTime(recording[startFrame].first);
-    std::optional<size_t> terminalVelocityFrame;
-    std::optional<Distance> terminalVelocityPosition;
+    std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> startTime(recording[startFrame].first);
 
     for (size_t i = startFrame + 1; i < recording.size() - 1; ++i) {
-        Distance projectedY;
-        if (terminalVelocityFrame) {
-            // constant speed at terminal velocity
-            assert(terminalVelocityPosition);
-            const auto timeDelta = recording[i].first- recording[terminalVelocityFrame.value()].first;
+        const auto timeDelta = recording[i].first - recording[startFrame].first;
+        const Motion projected = predictMotion(birdPos.value(), initialSpeed, recording[i].first - std::chrono::milliseconds(startTime.time_since_epoch()));
 
-            projectedY = terminalVelocityPosition.value() + TERMINAL_VELOCITY * timeDelta;
-        } else {
-            // accelerating under gravity
-            const auto timeDelta = recording[i].first - recording[startFrame].first;
-            const Speed finalSpeed = projectVerticalSpeed(initialSpeed, startTime, Time(recording[i].first));
-
-            Speed averageSpeed = (initialSpeed + finalSpeed) / 2;
-            projectedY = birdPos.value().y + averageSpeed * timeDelta;
-
-            if (finalSpeed.distance.val > TERMINAL_VELOCITY.distance.val) {
-                terminalVelocityFrame = i;
-                terminalVelocityPosition = projectedY;
-            }
-        }
-
-        std::cout << "" << Time(recording[i].first).time_since_epoch().count() << " " << projectedY.val << std::endl;
+        std::cout << "" << Time(recording[i].first).time_since_epoch().count() << " " << projected.position.y.val << std::endl;
     }
 }
 
@@ -158,7 +170,7 @@ void predictMotion(const std::vector<std::pair<std::chrono::milliseconds, cv::Ma
 void Driver::predictJump(const std::vector<std::pair<std::chrono::milliseconds, cv::Mat>>& recording,
                          size_t startFrame,
                          const FeatureDetector& detector) {
-    predictMotion(recording, startFrame, detector, JUMP_SPEED);
+    predictPosition(recording, startFrame, detector, JUMP_SPEED);
 }
 
 
@@ -167,27 +179,11 @@ void Driver::predictJump(const std::vector<std::pair<std::chrono::milliseconds, 
 void Driver::predictFreefall(const std::vector<std::pair<std::chrono::milliseconds, cv::Mat>>& recording,
                              size_t startFrame,
                              const FeatureDetector& detector) {
-    predictMotion(recording, startFrame, detector, Speed{0.00011});
+    predictPosition(recording, startFrame, detector, Speed{0.00011});
 }
 
-// TODO initial vertical speed can be computed based on time of last tap
-// TODO have some debug check that current (detected) bird pos aligns with the computed one (at root)
-Driver::State::State(Position position, bool tapped) : position{position}, rootTapped{tapped} {}
-
-Driver::State::State(std::shared_ptr<State>& parent, Position position, Time time,
-                     Speed verticalSpeed, Time timeOfLastTap) :
-    rootTapped(parent->rootTapped), parent(parent), position(position), time(time), verticalSpeed(verticalSpeed),
-    lastTap(timeOfLastTap) {}
-
-Speed Driver::State::calculateVerticalSpeedAt(Time when) const {
-    return verticalSpeed + GRAVITY * std::chrono::duration_cast<std::chrono::milliseconds>(when - time);
-}
-
-Position Driver::State::calculatePositionAt(Time when) const {
-    const Speed finalSpeed = projectVerticalSpeed(verticalSpeed, time, when);
-    const Speed averageSpeed = (verticalSpeed + finalSpeed) / 2;
-    return {position.x + HORIZONTAL_SPEED * std::chrono::duration_cast<std::chrono::milliseconds>(when - time),
-            position.y + averageSpeed * TIME_QUANTUM};
+Motion Driver::State::calculateMotionAt(Time when) const {
+    return predictMotion(motion.position, motion.verticalSpeed, when - time);
 }
 
 //bool Driver::State::hasCrashed(int noOfGaps, const Gap& left, const Gap& right) const {

@@ -140,8 +140,7 @@ public:
     void record(const cv::Mat& frame) {
         assert(m_state == RECORDING);
         m_frames.push_back(std::make_pair(
-                std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() -
-                                                                      m_currentFrameStart),
+                std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - m_currentFrameStart),
                 frame));
     }
 
@@ -155,21 +154,22 @@ public:
             m_currentPlaybackFrame = 0;
         }
 
-        auto now = std::chrono::system_clock::now();
-        auto currentFrameElapsed = now - m_currentFrameStart;
+        Time now = std::chrono::system_clock::now();
+        std::chrono::milliseconds currentFrameElapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_currentFrameStart);
 
         // This is interesting - by multiplying a std::chrono::milliseconds (which is std::chrono::duration<int64_t>)
         // by a float, we obtain a std::chrono::duration<float>. If m_playbackSpeed is 0, betweenFrameDelta.count() is
         // inf and everything behaves as expected (we get a pause).
-        auto betweenFrameDelta = (m_frames[m_currentPlaybackFrame + 1].first - m_frames[m_currentPlaybackFrame].first) *
-                                 (100.f / m_playbackSpeed);
+        std::chrono::milliseconds betweenFrameDelta =
+                std::chrono::duration_cast<std::chrono::milliseconds>((m_frames[m_currentPlaybackFrame + 1].first
+                                                                       - m_frames[m_currentPlaybackFrame].first)
+                                                                      * (100.f / m_playbackSpeed));
 
         if (currentFrameElapsed > betweenFrameDelta) {
             // last frame isn't displayed (we don't know its duration) - it's only used to determine
             // the duration of the penultimate frame
             m_currentPlaybackFrame = (m_currentPlaybackFrame + 1) % (m_frames.size() - 1);
-            m_currentFrameStart = now - std::chrono::duration_cast<std::chrono::milliseconds>(currentFrameElapsed -
-                                                                                              betweenFrameDelta);
+            m_currentFrameStart = now - (currentFrameElapsed - betweenFrameDelta);
         }
 
         return m_frames[m_currentPlaybackFrame].second;

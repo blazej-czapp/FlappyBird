@@ -14,6 +14,10 @@ struct Distance {
         return Distance{val * m};
     }
 
+    Distance operator/(float m) const {
+        return Distance{val / m};
+    }
+
     Distance operator+(const Distance &other) const {
         return Distance{val + other.val};
     }
@@ -30,6 +34,26 @@ struct Distance {
         return val < other.val;
     }
 
+    bool operator<=(const Distance& other) const {
+        return !(val > other.val);
+    }
+
+    bool operator>(const Distance& other) const {
+        return *this != other && !(*this < other);
+    }
+
+    bool operator>=(const Distance& other) const {
+        return !(*this < other);
+    }
+
+    bool operator==(const Distance& other) const {
+        return val == other.val;
+    }
+
+    bool operator!=(const Distance& other) const {
+        return !(val == other.val);
+    }
+
     float val;
 };
 
@@ -41,29 +65,65 @@ struct Position {
 /// per millisecond, positive is down
 struct Speed {
     /// speed * time = distance
-    Distance operator*(std::chrono::milliseconds duration) const {
-        return distance * duration.count();
+    Distance operator*(Time::duration duration) const {
+        return val * duration.count();
+    }
+
+    Speed operator*(float factor) const {
+        return {val * factor};
     }
 
     Speed operator+(const Speed &other) const {
-        return Speed{distance + other.distance};
+        return Speed{val + other.val};
+    }
+
+    Speed operator-(const Speed &other) const {
+        return Speed{val - other.val};
     }
 
     Speed operator/(float denominator) const {
-        return Speed{distance.val / denominator};
+        return Speed{val.val / denominator};
     }
 
-    Distance distance;
+    bool operator<(Speed other) const {
+        return val < other.val;
+    }
+
+    bool operator<=(Speed other) const {
+        return val <= other.val;
+    }
+
+    bool operator>(Speed other) const {
+        return val > other.val;
+    }
+
+    bool operator>=(Speed other) const {
+        return val >= other.val;
+    }
+
+    bool operator==(Speed other) const {
+        return val == other.val;
+    }
+
+    bool operator!=(Speed other) const {
+        return val != other.val;
+    }
+
+    Distance val;
 };
 
 /// per millisecond
 struct Acceleration {
     constexpr Acceleration(Speed speed) : speed{speed} {}
 
-    Speed operator*(std::chrono::milliseconds delta) const {
-        return Speed{speed.distance * delta.count()};
+    Speed operator*(Time::duration delta) const {
+        return Speed{speed.val * delta.count()};
     }
 
     Speed speed;
 };
 
+struct Motion {
+    Position position;
+    Speed verticalSpeed;
+};
