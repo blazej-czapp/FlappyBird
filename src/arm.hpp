@@ -11,7 +11,8 @@ public:
     void setBusy(bool val);
     void deactivate();
 
-    constexpr static std::chrono::milliseconds TAP_COOLDOWN{200}; // * 1000; //TODO previously ns
+    constexpr static std::chrono::milliseconds TAP_COOLDOWN{200};
+    constexpr static std::chrono::milliseconds TAP_DELAY{50}; // TODO complete guess, calibrate
 
 private:
     int init();

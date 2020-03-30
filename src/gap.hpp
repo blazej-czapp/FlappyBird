@@ -1,10 +1,11 @@
 #pragma once
 
 #include "opencv2/core/types.hpp"
+#include "units.hpp"
 
 struct Gap {
-    cv::Point lowerLeft;
-    cv::Point lowerRight;
-    cv::Point upperLeft;
-    cv::Point upperRight;
+    Position lowerLeft;
+    Position lowerRight;
+    Position upperLeft;
+    Position upperRight;
 };

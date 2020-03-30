@@ -34,6 +34,10 @@ struct Distance {
         val += other.val;
     }
 
+    Distance operator-=(const Distance &other) {
+        val -= other.val;
+    }
+
     bool operator<(const Distance& other) const {
         return val < other.val;
     }
@@ -130,4 +134,12 @@ struct Acceleration {
 struct Motion {
     Position position;
     Speed verticalSpeed;
+
+    Motion with(Speed newSpeed) const {
+        return Motion{position, newSpeed};
+    }
+
+    Motion with(Position newPosition) const {
+        return Motion{newPosition, verticalSpeed};
+    }
 };

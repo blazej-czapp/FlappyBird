@@ -2,7 +2,6 @@
 #include "display.hpp"
 #include "util.hpp"
 
-#include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
 
 #include <assert.h>
@@ -55,15 +54,15 @@ std::optional<Gap> FeatureDetector::getGapAt(int x) const {
     }
 
     Gap gap;
-    gap.lowerLeft = cv::Point(gapLeftX, gapY);
-    gap.upperLeft = cv::Point(gapLeftX, gapY - m_gapHeight/*lookUp(x, gapY - m_gapHeight, 255)*/);
+    gap.lowerLeft = Position{m_display.pixelXToPosition(gapLeftX), m_display.pixelYToPosition(gapY)};
+    gap.upperLeft = Position{m_display.pixelXToPosition(gapLeftX), m_display.pixelYToPosition(gapY - m_gapHeight)};/*lookUp(x, gapY - m_gapHeight, 255)*/;
 
     // found the leftmost corners of the obstacle in x, find the rightmost ones
     bool foundRightCorner = false;
     for (int exitX = x + m_pipeWidth * 0.5; exitX < x + m_pipeWidth * 1.5; exitX++) {
         if (m_thresholdedMap.ptr<uchar>(m_lowSweepY)[exitX] == 0) { // are we out of the pipe yet?
-            gap.lowerRight = cv::Point(exitX, gap.lowerLeft.y);
-            gap.upperRight = cv::Point(exitX, gap.upperLeft.y);
+            gap.lowerRight = Position{m_display.pixelXToPosition(exitX), gap.lowerLeft.y};
+            gap.upperRight = Position{m_display.pixelXToPosition(exitX), gap.upperLeft.y};
             foundRightCorner = true;
             break;
         }
@@ -77,8 +76,8 @@ std::optional<Gap> FeatureDetector::getGapAt(int x) const {
         // the boundaries of the pipe have different colour than the middle (roughly the same amount on each side)
         // and they're not detected as well but pipes are always the same width, so tweak the detected corners
         // symmetrically
-        int detectedWidth = gap.lowerRight.x - gap.lowerLeft.x;
-        int slack = m_pipeWidth - detectedWidth;
+        Distance detectedWidth = gap.lowerRight.x - gap.lowerLeft.x;
+        Distance slack = m_display.pixelsToDistance(m_pipeWidth) - detectedWidth;
         gap.lowerLeft.x -= slack / 2;
         gap.lowerRight.x += slack / 2;
         gap.upperLeft.x -= slack / 2;
@@ -131,7 +130,7 @@ std::pair<std::optional<Gap>, std::optional<Gap>> FeatureDetector::findGapsAhead
     std::optional<Gap> leftGap = findFirstGapAheadOf(x);
     bool inGap = false;
     if (leftGap.has_value()) {
-        if (leftGap->lowerLeft.x - x < NOISE_BUFFER) {
+        if (m_display.positionToPixel(leftGap->lowerLeft).x - x < NOISE_BUFFER) {
             inGap = true;
         }
     }

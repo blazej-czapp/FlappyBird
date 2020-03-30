@@ -70,6 +70,11 @@ public:
         return dist.val * m_unitLength;
     }
 
+    Distance pixelsToDistance(int dist) const {
+        assert(boundariesKnown());
+        return Distance{static_cast<float>(dist) / m_unitLength};
+    }
+
     bool boundariesKnown() const {
         return m_boundariesKnown;
     };

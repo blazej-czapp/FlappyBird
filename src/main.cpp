@@ -1,8 +1,5 @@
-#include <string>
 #include <iostream>
 #include <vector>
-#include <chrono>
-#include <memory>
 
 #include "opencv2/core/core.hpp"
 
@@ -10,14 +7,13 @@
 #include "driver.hpp"
 #include "display.hpp"
 #include "Recording.hpp"
-#include "WebCam.hpp"
 
 int main(int argc, char** argv) {
     Recording recording;
-    WebCam camera;
-    Display display(camera);
-//    Display display(recording);
-//    recording.load(display);
+//    WebCam camera;
+//    Display display(camera);
+    Display display(recording);
+    recording.load(display);
     Arm arm;
     Driver driver{arm, display};
     bool humanDriving = true;
@@ -40,7 +36,6 @@ int main(int argc, char** argv) {
 
             display.threshold(thresholdedBird, thresholdedWorld);
 
-            //TODO pulling it out of scope below for calibration, put it back when done
             FeatureDetector detector{thresholdedWorld, thresholdedBird, display};
 
 //            for calibrating motion constants
@@ -72,8 +67,13 @@ int main(int argc, char** argv) {
                 std::cout << "space" << std::endl;
                 arm.tap();
             } else if (key == 'a') {
-                std::cout << "Switching to automatic" << std::endl;
-                humanDriving = false;
+                if (detector.findBird()) {
+                    std::cout << "Switching to automatic" << std::endl;
+                    driver.takeOver(/*birdPos.value()*/);
+                    humanDriving = false;
+                } else {
+                    std::cout << "Switch to automatic FAILED - can't find the bird" << std::endl;
+                }
             } else if (key == 'm') {
                 std::cout << "Switching to manual" << std::endl;
                 humanDriving = true;
