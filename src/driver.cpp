@@ -198,14 +198,3 @@ void Driver::predictFreefall(const std::vector<std::pair<Time::duration, cv::Mat
                              const FeatureDetector& detector) {
     predictPosition(recording, startFrame, detector, Speed{0.00011});
 }
-
-//bool Driver::State::hasCrashed(int noOfGaps, const Gap& left, const Gap& right) const {
-//    bool result = noOfGaps > 0 ? collidesWith(left) : false;
-//    result |= noOfGaps > 1 ? collidesWith(right) : false;
-//    return result || hitGround();
-//}
-//
-//bool Driver::State::collidesWith(const Gap& gap) const {
-//    return m_position.x >= gap.lowerLeft.x && m_position.x <= gap.lowerRight.x && (m_position.y > gap.lowerLeft.y || m_position.y < gap.upperLeft.y);
-//}
-
