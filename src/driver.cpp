@@ -57,12 +57,54 @@ void Driver::takeOver(/*Position birdPos*/) {
 //    m_birdPosAtLastTap = birdPos;
 }
 
-namespace {
-    bool hitsPipe(const Gap& gap, const Position& pos, const Distance& radius) {
-        return pos.x + radius >= gap.lowerLeft.x
-               && pos.x - radius <= gap.lowerRight.x
-               && (pos.y + radius >= gap.lowerLeft.y || pos.y - radius <= gap.upperLeft.y);
+bool Driver::hitsPipe(const Gap& gap, const Position& pos, const Distance& radius) {
+    return pos.x + radius >= (gap.lowerLeft.x - SAFETY_BUFFER)
+           && pos.x - radius <= (gap.lowerRight.x + SAFETY_BUFFER)
+           && (pos.y + radius >= (gap.lowerLeft.y - SAFETY_BUFFER)
+               || pos.y - radius <= (gap.upperLeft.y - SAFETY_BUFFER));
+}
+
+bool Driver::hasCrashed(Position pos, const std::pair<std::optional<Gap>, std::optional<Gap>>& gaps) const {
+    if (m_groundLevel < pos.y) {
+        return true;
     }
+
+    assert(!gaps.second || gaps.first);
+    if (gaps.second) {
+        return hitsPipe(gaps.first.value(), pos, BIRD_RADIUS) || hitsPipe(gaps.second.value(), pos, BIRD_RADIUS);
+    } else if (gaps.first) {
+        return hitsPipe(gaps.first.value(), pos, BIRD_RADIUS);
+    } else {
+        return false;
+    }
+}
+
+bool Driver::canSucceed(Motion motion, Time now, Time lastTap, const std::pair<std::optional<Gap>, std::optional<Gap>>& gaps) const {
+    // this could be some score of how good the clearance is rather than just a bool
+    if (hasCrashed(motion.position, gaps)) {
+        return false;
+    }
+
+    if (motion.position.x > m_disp.pixelXToPosition(m_disp.getRightBoundary())) {
+        return true;
+    }
+
+    // depth-first search
+    // TODO we try to tap first - maybe we can speed up the search with some heuristic, e.g. tap first if the next gap
+    //      is above the bird, otherwise try not tapping first
+    // try tapping if we're past cooldown
+    if (now - lastTap > Arm::TAP_COOLDOWN) {
+        // project to the point of actual tap
+        Motion atTap = predictMotion(motion, Arm::TAP_DELAY);
+        // compute motion after the tap until the next time quantum (with the new speed after tap)
+        Motion atNextQuantum = predictMotion(atTap.with(JUMP_SPEED), TIME_QUANTUM - Arm::TAP_DELAY);
+        if (canSucceed(atNextQuantum, now + TIME_QUANTUM, now + Arm::TAP_DELAY, gaps)) {
+            return true;
+        }
+    }
+
+    // if tap doesn't lead to a success or arm is still on cooldown, try not tapping
+    return canSucceed(predictMotion(motion, TIME_QUANTUM), now + TIME_QUANTUM, lastTap, gaps);
 }
 
 void Driver::drive(const FeatureDetector& detector) {
@@ -110,22 +152,7 @@ void Driver::drive(const FeatureDetector& detector) {
     Position dummyPos;
     Motion startingMotion = predictMotion(Motion{dummyPos, JUMP_SPEED}, now - m_lastTapped).with(birdPos.value());
 
-    auto hasCrashed = [&] (const Position& pos) {
-        if (m_groundLevel < pos.y) {
-            return true;
-        }
-
-        assert(!gaps.second || gaps.first);
-        if (gaps.second) {
-            return hitsPipe(gaps.first.value(), pos, BIRD_RADIUS) || hitsPipe(gaps.second.value(), pos, BIRD_RADIUS);
-        } else if (gaps.first) {
-            return hitsPipe(gaps.first.value(), pos, BIRD_RADIUS);
-        } else {
-            return false;
-        }
-    };
-
-    if (canSucceed(Motion{birdPos.value(), startingMotion.verticalSpeed}, now, m_lastTapped, hasCrashed)) {
+    if (canSucceed(Motion{birdPos.value(), startingMotion.verticalSpeed}, now, m_lastTapped, gaps)) {
         m_arm.tap();
         // arm.tap() starts a new thread which does the tap so let's assume it exits immediately  and so tap delay
         // starts now

@@ -9,6 +9,7 @@
 #include "display.hpp"
 #include "featureDetector.hpp"
 #include "units.hpp"
+#include "util.hpp"
 
 class Driver {
     // it takes approx 1.632s to cover the unit distance, speed is per millisecond
@@ -16,11 +17,18 @@ class Driver {
 
     // constants calibrated using calibration_recording.xml and calibration_boundaries.txt (the boundaries were from
     // a different recording and the screen is a touch wider than the boundaries, may need to tweak that and recalibrate)
-    static constexpr Speed JUMP_SPEED{{-0.00139}}; // tap just sets a new vertical speed, may need some more calibration (increasing abs. value)
-    static constexpr Speed TERMINAL_VELOCITY{{0.00198}};
+
+    // tap just sets a new vertical speed, this may need some more calibration (together with gravity) - because tap
+    // happens between frames, I had to estimate the speed at tap by fitting speed and gravity at frame
+    static constexpr Speed JUMP_SPEED{{-0.00139}};
+    static constexpr Speed TERMINAL_VELOCITY{{0.00198}}; // this should be quite accurate
     static constexpr Acceleration GRAVITY{{0.00000451}}; // position grows down, gravity is positive
 
     static constexpr Distance BIRD_RADIUS{0.05f};
+
+    // "grow" pipes by this much in all directions for collision detection (should yield safer paths but may cause no
+    // path to be found if too large)
+    static constexpr Distance SAFETY_BUFFER{0.02};
 
 public:
     Driver(Arm& arm, Display& cam);
@@ -57,34 +65,9 @@ private:
 
     Speed projectVerticalSpeed(Speed startingSpeed, Time::duration deltaT) const;
     Motion predictMotion(Motion motionNow, Time::duration deltaT) const;
+    bool hasCrashed(Position pos, const std::pair<std::optional<Gap>, std::optional<Gap>>& gaps) const;
+    static bool hitsPipe(const Gap& gap, const Position& pos, const Distance& radius);
 
     /// lastTap is time of actual physical tap, not just tap intent (i.e. it should take arm delay into account)
-    template <typename Predicate>
-    bool canSucceed(Motion motion, Time now, Time lastTap, Predicate hasCrashed) const {
-        // this could be some score of how good the clearance is rather than just a bool
-        if (hasCrashed(motion.position)) {
-            return false;
-        }
-
-        if (motion.position.x > m_disp.pixelXToPosition(m_disp.getRightBoundary())) {
-            return true;
-        }
-
-        // depth-first search
-        // TODO we try to tap first - maybe we can speed up the search with some heuristic, e.g. tap first if the next gap
-        //      is above the bird, otherwise try not tapping first
-        // try tapping if we're past cooldown
-        if (now - lastTap > Arm::TAP_COOLDOWN) {
-            // project to the point of actual tap
-            Motion atTap = predictMotion(motion, Arm::TAP_DELAY);
-            // compute motion after the tap until the next time quantum (with the new speed after tap)
-            Motion atNextQuantum = predictMotion(atTap.with(JUMP_SPEED), TIME_QUANTUM - Arm::TAP_DELAY);
-            if (canSucceed(atNextQuantum, now + TIME_QUANTUM, now + Arm::TAP_DELAY, hasCrashed)) {
-                return true;
-            }
-        }
-
-        // if tap doesn't lead to a success or arm is still on cooldown, try not tapping
-        return canSucceed(predictMotion(motion, TIME_QUANTUM), now + TIME_QUANTUM, lastTap, hasCrashed);
-    }
+    bool canSucceed(Motion motion, Time now, Time lastTap, const std::pair<std::optional<Gap>, std::optional<Gap>>& gaps) const;
 };

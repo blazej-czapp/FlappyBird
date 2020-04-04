@@ -87,6 +87,7 @@ std::optional<Gap> FeatureDetector::getGapAt(int x) const {
     return std::move(gap);
 }
 
+// TODO find the far gap sooner, right now it has to be visible in full before it's identified
 std::optional<Gap> FeatureDetector::findFirstGapAheadOf(int x) const {
     assert(m_display.boundariesKnown());
     const uchar *row = m_thresholdedMap.ptr<uchar>(m_lowSweepY);
