@@ -6,11 +6,11 @@
 
 #include "util.hpp"
 
-Speed Driver::projectVerticalSpeed(Speed startingSpeed, Time::duration deltaT) const {
+Speed Driver::projectVerticalSpeed(Speed startingSpeed, Time::duration deltaT) {
     return startingSpeed + GRAVITY * deltaT;
 }
 
-Motion Driver::predictMotion(Motion motionNow, Time::duration deltaT) const {
+Motion Driver::predictMotion(Motion motionNow, Time::duration deltaT) {
     assert(motionNow.verticalSpeed <= TERMINAL_VELOCITY);
     Speed projectedSpeed = projectVerticalSpeed(motionNow.verticalSpeed, deltaT);
 

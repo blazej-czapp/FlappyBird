@@ -63,9 +63,11 @@ private:
     Time m_lastTapped;
 //    Position m_birdPosAtLastTap; // TODO use for debug to compare predicted and actual
 
-    Speed projectVerticalSpeed(Speed startingSpeed, Time::duration deltaT) const;
-    Motion predictMotion(Motion motionNow, Time::duration deltaT) const;
     bool hasCrashed(Position pos, const std::pair<std::optional<Gap>, std::optional<Gap>>& gaps) const;
+
+    // should these be free functions? we'd need to make the constants public or pass them directly
+    static Speed projectVerticalSpeed(Speed startingSpeed, Time::duration deltaT);
+    static Motion predictMotion(Motion motionNow, Time::duration deltaT);
     static bool hitsPipe(const Gap& gap, const Position& pos, const Distance& radius);
 
     /// Given current motion, can we steer the bird through all visible pipes?
