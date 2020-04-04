@@ -68,6 +68,10 @@ private:
     bool hasCrashed(Position pos, const std::pair<std::optional<Gap>, std::optional<Gap>>& gaps) const;
     static bool hitsPipe(const Gap& gap, const Position& pos, const Distance& radius);
 
-    /// lastTap is time of actual physical tap, not just tap intent (i.e. it should take arm delay into account)
-    bool canSucceed(Motion motion, Time now, Time lastTap, const std::pair<std::optional<Gap>, std::optional<Gap>>& gaps) const;
+    /// Given current motion, can we steer the bird through all visible pipes?
+    /// @param sinceLastTap time from the actual physical tap, not since we last issued a tap request (i.e. takes
+    ///                     arm delay into account)
+    bool canSucceed(Motion motion,
+                    Time::duration sinceLastTap,
+                    const std::pair<std::optional<Gap>, std::optional<Gap>>& gaps) const;
 };

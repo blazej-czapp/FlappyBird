@@ -79,7 +79,9 @@ bool Driver::hasCrashed(Position pos, const std::pair<std::optional<Gap>, std::o
     }
 }
 
-bool Driver::canSucceed(Motion motion, Time now, Time lastTap, const std::pair<std::optional<Gap>, std::optional<Gap>>& gaps) const {
+bool Driver::canSucceed(Motion motion,
+                        Time::duration sinceLastTap,
+                        const std::pair<std::optional<Gap>, std::optional<Gap>>& gaps) const {
     // this could be some score of how good the clearance is rather than just a bool
     if (hasCrashed(motion.position, gaps)) {
         return false;
@@ -93,18 +95,18 @@ bool Driver::canSucceed(Motion motion, Time now, Time lastTap, const std::pair<s
     // TODO we try to tap first - maybe we can speed up the search with some heuristic, e.g. tap first if the next gap
     //      is above the bird, otherwise try not tapping first
     // try tapping if we're past cooldown
-    if (now - lastTap > Arm::TAP_COOLDOWN) {
+    if (sinceLastTap > Arm::TAP_COOLDOWN) {
         // project to the point of actual tap
         Motion atTap = predictMotion(motion, Arm::TAP_DELAY);
-        // compute motion after the tap until the next time quantum (with the new speed after tap)
+        // then, compute motion from the tap until the next time quantum (with the new speed from tap)
         Motion atNextQuantum = predictMotion(atTap.with(JUMP_SPEED), TIME_QUANTUM - Arm::TAP_DELAY);
-        if (canSucceed(atNextQuantum, now + TIME_QUANTUM, now + Arm::TAP_DELAY, gaps)) {
+        if (canSucceed(atNextQuantum, TIME_QUANTUM - Arm::TAP_DELAY, gaps)) {
             return true;
         }
     }
 
     // if tap doesn't lead to a success or arm is still on cooldown, try not tapping
-    return canSucceed(predictMotion(motion, TIME_QUANTUM), now + TIME_QUANTUM, lastTap, gaps);
+    return canSucceed(predictMotion(motion, TIME_QUANTUM), sinceLastTap + TIME_QUANTUM, gaps);
 }
 
 void Driver::drive(const FeatureDetector& detector) {
@@ -152,7 +154,7 @@ void Driver::drive(const FeatureDetector& detector) {
     Position dummyPos;
     Motion startingMotion = predictMotion(Motion{dummyPos, JUMP_SPEED}, now - m_lastTapped).with(birdPos.value());
 
-    if (canSucceed(Motion{birdPos.value(), startingMotion.verticalSpeed}, now, m_lastTapped, gaps)) {
+    if (canSucceed(Motion{birdPos.value(), startingMotion.verticalSpeed}, now - m_lastTapped, gaps)) {
         m_arm.tap();
         // arm.tap() starts a new thread which does the tap so let's assume it exits immediately  and so tap delay
         // starts now
