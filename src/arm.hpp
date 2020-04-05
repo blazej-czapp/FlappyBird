@@ -17,4 +17,5 @@ public:
 private:
     int init();
     bool m_isBusy;
+    bool m_initSuccess{false};
 };
