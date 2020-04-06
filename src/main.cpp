@@ -14,7 +14,7 @@ int main(int argc, char** argv) {
 //    Display display(camera);
     Display display(recording);
     recording.load(display);
-    Arm arm;
+    Arm arm(false);
     Driver driver{arm, display};
     bool humanDriving = true;
 
@@ -92,6 +92,5 @@ int main(int argc, char** argv) {
         std::cerr << "Error: " << ex.what() << std::endl;
     }
 
-    arm.deactivate();
     return 0;
 }

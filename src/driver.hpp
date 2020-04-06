@@ -49,7 +49,7 @@ public:
                          Speed initialSpeed) const;
 
 private:
-    static constexpr const Time::duration TIME_QUANTUM{100};
+    static constexpr const Time::duration TIME_QUANTUM{150};
 
     // simplifies calculations (canSucceed()) if we can compute events between time quanta independently
     static_assert(TIME_QUANTUM > Arm::TAP_DELAY);
