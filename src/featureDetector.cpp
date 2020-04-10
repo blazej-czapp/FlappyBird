@@ -108,8 +108,8 @@ std::pair<std::optional<Gap>, std::optional<Gap>> FeatureDetector::findGapsAhead
     std::optional<Gap> leftGap = findFirstGapAheadOf(x);
     if (leftGap.has_value()) {
         // we may be able to see the next gap as well (or part thereof)
-        std::optional<Gap> rightGap = findFirstGapAheadOf(m_display.distanceToPixels(leftGap->lowerRight.x
-                                                          + PIPE_SPACING));
+        std::optional<Gap> rightGap = findFirstGapAheadOf(
+                m_display.coordinateXToPixel(leftGap->lowerRight.x + PIPE_SPACING));
 
         return { std::move(leftGap), std::move(rightGap) };
     }

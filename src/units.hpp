@@ -59,15 +59,66 @@ struct Distance {
     }
 
     bool operator!=(const Distance& other) const {
-        return !(val == other.val);
+        return !(*this == other);
     }
 
     float val;
 };
 
+struct Coordinate {
+    float val;
+
+    bool operator==(const Coordinate& other) const {
+        return val == other.val;
+    }
+
+    bool operator!=(const Coordinate& other) const {
+        return !(*this == other);
+    }
+
+    // it's not meaningful, mathematically, to add two points
+    Distance operator+(const Coordinate& other) = delete;
+
+    Distance operator-(const Coordinate& other) const {
+        return Distance{val - other.val};
+    }
+
+    Coordinate operator+(const Distance& dist) const {
+        return Coordinate{val + dist.val};
+    }
+
+    Coordinate operator-(const Distance& dist) const {
+        return Coordinate{val - dist.val};
+    }
+
+    void operator-=(const Distance& dist) {
+        val -= dist.val;
+    }
+
+    void operator+=(const Distance& dist) {
+        val += dist.val;
+    }
+
+    bool operator<(const Coordinate& other) const {
+        return val < other.val;
+    }
+
+    bool operator<=(const Coordinate& other) const {
+        return !(val > other.val);
+    }
+
+    bool operator>(const Coordinate& other) const {
+        return *this != other && !(*this < other);
+    }
+
+    bool operator>=(const Coordinate& other) const {
+        return !(*this < other);
+    }
+};
+
 struct Position {
-    Distance x; // proportion of screen width from left of active area
-    Distance y; // proportion of screen WIDTH (see comment for Distance) from top of active area
+    Coordinate x; // distance from the left edge of the viewport
+    Coordinate y; // distance from the top edge of the viewport
 };
 
 /// per millisecond, positive is down
@@ -114,7 +165,7 @@ struct Speed {
     }
 
     bool operator!=(Speed other) const {
-        return val != other.val;
+        return !(*this == other);
     }
 
     Distance val;

@@ -56,7 +56,7 @@ private:
 
     void markGap(const Gap& gap) const;
 
-    Distance m_groundLevel;
+    Coordinate m_groundLevel;
 
     Arm& m_arm;
     Display& m_disp;

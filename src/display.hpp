@@ -44,14 +44,14 @@ public:
         return m_currentFrame;
     }
 
-    Distance pixelYToPosition(int y) const {
-        assert(boundariesKnown());
-        return {static_cast<float>(y - (m_frameBottomLeft.y - m_frameHeight)) / m_unitLength};
-    }
-
-    Distance pixelXToPosition(int x) const {
+    Coordinate pixelXToPosition(int x) const {
         assert(boundariesKnown());
         return {static_cast<float>(x - m_frameBottomLeft.x) / m_unitLength};
+    }
+
+    Coordinate pixelYToPosition(int y) const {
+        assert(boundariesKnown());
+        return {static_cast<float>(y - (m_frameBottomLeft.y - m_frameHeight)) / m_unitLength};
     }
 
     Position pixelToPosition(cv::Point p) const {
@@ -59,10 +59,17 @@ public:
         return Position { pixelXToPosition(p.x), pixelYToPosition(p.y) };
     }
 
+    int coordinateXToPixel(const Coordinate& coord) {
+        return static_cast<int>(m_unitLength * coord.val + m_frameBottomLeft.x);
+    }
+
+    int coordinateYToPixel(const Coordinate& coord) {
+        return static_cast<int>(m_frameBottomLeft.y - m_frameHeight + m_unitLength * coord.val);
+    }
+
     cv::Point positionToPixel(const Position& pos) {
         assert(boundariesKnown());
-        return {static_cast<int>(m_unitLength * pos.x.val + m_frameBottomLeft.x),
-                static_cast<int>(m_frameBottomLeft.y - m_frameHeight + m_unitLength * pos.y.val)};
+        return {coordinateXToPixel(pos.x), coordinateYToPixel(pos.y)};
     }
 
     int distanceToPixels(Distance dist) const {
