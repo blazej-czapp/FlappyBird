@@ -52,6 +52,7 @@ void Driver::markGap(const Gap& gap) const {
 }
 
 void Driver::takeOver(/*Position birdPos*/) {
+    // tap immediately so we know when the last tap happened
     m_arm.tap();
     m_lastTapped = toTime(std::chrono::system_clock::now()) + Arm::TAP_DELAY;
 //    m_birdPosAtLastTap = birdPos;
@@ -119,14 +120,7 @@ void Driver::drive(const FeatureDetector& detector) {
         return; // not initialised yet
     }
 
-    m_disp.circle(birdPos.value(), Driver::BIRD_RADIUS, CV_BLUE);
-
-    //TODO make more robust
-    // scaling x so we don't pick up the bird, the bird is always at the same position horizontally so we don't need
-    // to worry about the distance growing
-    Position pos{birdPos->x * 1.1, birdPos->y};
-
-    int gapX, gapYUpper, gapYLower;
+    m_disp.circle(birdPos.value(), BIRD_RADIUS, CV_BLUE);
 
     std::pair<std::optional<Gap>, std::optional<Gap>> gaps = detector.findGapsAheadOf(birdPos.value());
     assert(!gaps.second || gaps.first); // detecting the right but not the left gap would be unexpected

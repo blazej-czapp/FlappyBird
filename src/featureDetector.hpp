@@ -26,13 +26,12 @@ private:
     std::optional<Gap> findFirstGapAheadOf(int x) const;
     std::optional<Gap> getGapAt(int x) const;
     int lookUp(int x, int y, int lookFor) const;
-    int lookLeft(int x, int y) const;
+    int lookLeft(int x, int y, int lookFor) const;
 
     const cv::Mat& m_thresholdedMap;
     const cv::Mat& m_thresholdedBird;
     Display& m_display;
     const int m_lowSweepY; // sweep low to ensure we hit a pipe, not drive through a gap
     const int m_pipeWidth;
-    const int m_pipeSpacing;
     const int m_gapHeight;
 };

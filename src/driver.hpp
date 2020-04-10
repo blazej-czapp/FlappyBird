@@ -24,7 +24,7 @@ class Driver {
     static constexpr Speed TERMINAL_VELOCITY{{0.00198}}; // this should be quite accurate
     static constexpr Acceleration GRAVITY{{0.00000451}}; // position grows down, gravity is positive
 
-    static constexpr Distance BIRD_RADIUS{0.05f};
+    static constexpr Distance BIRD_RADIUS{0.06f};
 
     // "grow" pipes by this much in all directions for collision detection (should yield safer paths but may cause no
     // path to be found if too large)
