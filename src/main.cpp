@@ -36,6 +36,12 @@ int main(int argc, char** argv) {
 
             display.threshold(thresholdedBird, thresholdedWorld);
 
+            if (!display.boundariesKnown()) {
+                cv::waitKey(15);
+                display.show();
+                continue;
+            }
+
             FeatureDetector detector{thresholdedWorld, thresholdedBird, display};
 
 //            for calibrating motion constants
