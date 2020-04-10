@@ -73,7 +73,8 @@ std::optional<Gap> FeatureDetector::getGapAt(int x) const {
 std::optional<Gap> FeatureDetector::findFirstGapAheadOf(int x) const {
     assert(m_display.boundariesKnown());
     const uchar *row = m_thresholdedMap.ptr<uchar>(m_lowSweepY);
-    for (int searchX = x; searchX < m_display.getRightBoundary() - SEARCH_WINDOW_SIZE; searchX += SEARCH_WINDOW_SIZE) {
+    int rightBoundary = m_display.getRightBoundary();
+    for (int searchX = x; searchX < rightBoundary; searchX += SEARCH_WINDOW_SIZE) {
         // Check the SEARCH_WINDOW_SIZE pixels ahead if we have a white block.
         // This works with te assumption that a row is composed sequences of solid black and solid white, with only
         // sporadic noise outside of the pipe. In the end, maxWhiteCount should be roughly equal to the length of the
@@ -82,7 +83,9 @@ std::optional<Gap> FeatureDetector::findFirstGapAheadOf(int x) const {
         unsigned maxWhiteCount = 0;
         unsigned maxWhiteIndex = 0;
         unsigned currentWhiteCount = 0;
-        for (unsigned i = searchX; i < searchX + SEARCH_WINDOW_SIZE; ++i) {
+
+        // We may not have a full search window if looking at a far pipe just emerging from the edge of the screen.
+        for (unsigned i = searchX; i < std::min(rightBoundary, searchX + SEARCH_WINDOW_SIZE); ++i) {
             if (row[i] == WHITE) {
                 ++currentWhiteCount;
                 if (currentWhiteCount > maxWhiteCount) {
@@ -94,7 +97,7 @@ std::optional<Gap> FeatureDetector::findFirstGapAheadOf(int x) const {
             }
         }
 
-        if (maxWhiteCount < SEARCH_WINDOW_SIZE / 2) {
+        if (maxWhiteCount < static_cast<float>(SEARCH_WINDOW_SIZE) / 8) {
             continue;
         }
 
