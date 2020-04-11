@@ -80,16 +80,16 @@ bool Driver::hasCrashed(Position pos, const std::pair<std::optional<Gap>, std::o
     }
 }
 
-bool Driver::canSucceed(Motion motion,
-                        Time::duration sinceLastTap,
-                        const std::pair<std::optional<Gap>, std::optional<Gap>>& gaps) const {
+Driver::Action Driver::bestAction(Motion motion,
+                                  Time::duration sinceLastTap,
+                                  const std::pair<std::optional<Gap>, std::optional<Gap>>& gaps) const {
     // this could be some score of how good the clearance is rather than just a bool
     if (hasCrashed(motion.position, gaps)) {
-        return false;
+        return Action::NONE;
     }
 
     if (motion.position.x > m_disp.pixelXToPosition(m_disp.getRightBoundary())) {
-        return true;
+        return Action::ANY;
     }
 
     // depth-first search
@@ -98,16 +98,25 @@ bool Driver::canSucceed(Motion motion,
     // try tapping if we're past cooldown
     if (sinceLastTap > Arm::TAP_COOLDOWN) {
         // project to the point of actual tap
-        Motion atTap = predictMotion(motion, Arm::TAP_DELAY);
+        const Motion atTap = predictMotion(motion, Arm::TAP_DELAY);
         // then, compute motion from the tap until the next time quantum (with the new speed from tap)
-        Motion atNextQuantum = predictMotion(atTap.with(JUMP_SPEED), TIME_QUANTUM - Arm::TAP_DELAY);
-        if (canSucceed(atNextQuantum, TIME_QUANTUM - Arm::TAP_DELAY, gaps)) {
-            return true;
+        const Motion atNextQuantum = predictMotion(atTap.with(JUMP_SPEED), TIME_QUANTUM - Arm::TAP_DELAY);
+        const Action best = bestAction(atNextQuantum, TIME_QUANTUM - Arm::TAP_DELAY, gaps);
+        // if there is a path that leads to success from here, it begins with a tap
+        if (best != Action::NONE) {
+            return Action::TAP;
         }
     }
 
     // if tap doesn't lead to a success or arm is still on cooldown, try not tapping
-    return canSucceed(predictMotion(motion, TIME_QUANTUM), sinceLastTap + TIME_QUANTUM, gaps);
+    Action best = bestAction(predictMotion(motion, TIME_QUANTUM), sinceLastTap + TIME_QUANTUM, gaps);
+    // similarly to tap - if there's any successful path down the line, it begins with not tapping here, so return
+    // NO_TAP
+    if (best != Action::NONE) {
+        return Action::NO_TAP;
+    } else {
+        return Action::NONE;
+    }
 }
 
 void Driver::drive(const FeatureDetector& detector) {
@@ -148,7 +157,7 @@ void Driver::drive(const FeatureDetector& detector) {
     Position dummyPos;
     Motion startingMotion = predictMotion(Motion{dummyPos, JUMP_SPEED}, now - m_lastTapped).with(birdPos.value());
 
-    if (canSucceed(Motion{birdPos.value(), startingMotion.verticalSpeed}, now - m_lastTapped, gaps)) {
+    if (bestAction(Motion{birdPos.value(), startingMotion.verticalSpeed}, now - m_lastTapped, gaps) == Action::TAP) {
         m_arm.tap();
         // arm.tap() starts a new thread which does the tap so let's assume it exits immediately  and so tap delay
         // starts now

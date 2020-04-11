@@ -51,7 +51,7 @@ public:
 private:
     static constexpr const Time::duration TIME_QUANTUM{150};
 
-    // simplifies calculations (canSucceed()) if we can compute events between time quanta independently
+    // simplifies calculations (bestAction()) if we can compute events between time quanta independently
     static_assert(TIME_QUANTUM > Arm::TAP_DELAY);
 
     void markGap(const Gap& gap) const;
@@ -70,10 +70,18 @@ private:
     static Motion predictMotion(Motion motionNow, Time::duration deltaT);
     static bool hitsPipe(const Gap& gap, const Position& pos, const Distance& radius);
 
-    /// Given current motion, can we steer the bird through all visible pipes?
+    enum class Action {
+        TAP,
+        NO_TAP,
+        ANY,
+        NONE
+    };
+
+    /// Given current motion, how can we steer the bird through all visible pipes? Right now 'best' means 'first one
+    /// we can find with depth-first-search'.
     /// @param sinceLastTap time from the actual physical tap, not since we last issued a tap request (i.e. takes
     ///                     arm delay into account)
-    bool canSucceed(Motion motion,
-                    Time::duration sinceLastTap,
-                    const std::pair<std::optional<Gap>, std::optional<Gap>>& gaps) const;
+    Action bestAction(Motion motion,
+                      Time::duration sinceLastTap,
+                      const std::pair<std::optional<Gap>, std::optional<Gap>>& gaps) const;
 };
