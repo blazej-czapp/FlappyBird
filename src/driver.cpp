@@ -62,7 +62,7 @@ bool Driver::hitsPipe(const Gap& gap, const Position& pos, const Distance& radiu
     return pos.x + radius >= (gap.lowerLeft.x - SAFETY_BUFFER)
            && pos.x - radius <= (gap.lowerRight.x + SAFETY_BUFFER)
            && (pos.y + radius >= (gap.lowerLeft.y - SAFETY_BUFFER)
-               || pos.y - radius <= (gap.upperLeft.y - SAFETY_BUFFER));
+               || pos.y - radius <= (gap.upperLeft.y + SAFETY_BUFFER));
 }
 
 bool Driver::hasCrashed(Position pos, const std::pair<std::optional<Gap>, std::optional<Gap>>& gaps) const {
