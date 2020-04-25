@@ -89,12 +89,11 @@ Driver::Action Driver::bestAction(Motion motion,
     }
 
     if (motion.position.x > m_disp.pixelXToPosition(m_disp.getRightBoundary())) {
+        // whatever brought us here is good
         return Action::ANY;
     }
 
     // depth-first search
-    // TODO we try to tap first - maybe we can speed up the search with some heuristic, e.g. tap first if the next gap
-    //      is above the bird, otherwise try not tapping first
     // try tapping if we're past cooldown
     if (sinceLastTap > Arm::TAP_COOLDOWN) {
         // project to the point of actual tap

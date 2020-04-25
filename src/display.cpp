@@ -158,6 +158,7 @@ void Display::mouseClick(int x, int y) {
     m_currentClick = (m_currentClick + 1) % 5;
 
     if (m_currentClick == 0) {
+        std::cout << "Boundaries successfully set" << std::endl;
         m_boundariesKnown = true;
         saveBoundaries();
     }

@@ -70,7 +70,7 @@ int main(int argc, char** argv) {
                 std::cout << "Exiting" << std::endl;
                 break;
             } else if (key == 32 && humanDriving) { // space
-                std::cout << "space" << std::endl;
+//                std::cout << "space" << std::endl;
                 arm.tap();
             } else if (key == 'a') {
                 std::optional<Position> birdPos = detector.findBird();
