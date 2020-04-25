@@ -65,7 +65,7 @@ int main(int argc, char** argv) {
             // driver will mark some objects in the frame so only display the frame once it's done
             display.show();
 
-            const char key = cv::waitKey(15);
+            const char key = cv::waitKey(1);
             if (key == 27) {
                 std::cout << "Exiting" << std::endl;
                 break;
@@ -73,7 +73,8 @@ int main(int argc, char** argv) {
                 std::cout << "space" << std::endl;
                 arm.tap();
             } else if (key == 'a') {
-                if (detector.findBird()) {
+                std::optional<Position> birdPos = detector.findBird();
+                if (birdPos) {
                     std::cout << "Switching to automatic" << std::endl;
                     driver.takeOver(/*birdPos.value()*/);
                     humanDriving = false;
