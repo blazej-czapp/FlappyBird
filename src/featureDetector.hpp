@@ -8,14 +8,14 @@ namespace cv {
     class Mat;
 }
 
-class Display;
+class VideoFeed;
 
 /**
  * Given thresholded camera captures, finds the location of the bird and pipes/gaps ahead.
  */
 class FeatureDetector {
 public:
-    FeatureDetector(const cv::Mat& world, const cv::Mat& bird, Display& disp);
+    FeatureDetector(const cv::Mat& world, const cv::Mat& bird, VideoFeed& disp);
     FeatureDetector(const FeatureDetector&) = delete;
     FeatureDetector(FeatureDetector&&) = delete;
 
@@ -30,7 +30,7 @@ private:
 
     const cv::Mat& m_thresholdedMap;
     const cv::Mat& m_thresholdedBird;
-    Display& m_display;
+    VideoFeed& m_display;
     const int m_lowSweepY; // sweep low to ensure we hit a pipe, not drive through a gap
     const int m_pipeWidth;
     const int m_gapHeight;

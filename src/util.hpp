@@ -24,6 +24,6 @@ inline bool approxEqual(float a, float b, float e = 0.e-4f) {
     return std::abs(a / b) < e;
 }
 
-inline Time toTime(std::chrono::system_clock::time_point&& point) {
-    return std::chrono::time_point_cast<Time::duration>(point);
+inline TimePoint toTime(std::chrono::system_clock::time_point&& point) {
+    return std::chrono::time_point_cast<TimePoint::duration>(point);
 }

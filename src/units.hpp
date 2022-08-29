@@ -2,11 +2,11 @@
 
 #include <chrono>
 
-// Doing this as `struct Time : public std::chrono::time_point...` would be nice because we could create some convenient
+// Doing this as `struct TimePoint : public std::chrono::time_point...` would be nice because we could create some convenient
 // constructors but has the disadvantage that e.g. operator=() (and potentially others) has to be implemented explicitly
-// for time_point argument - otherwise the default one takes Time& of which time_point is the base class and so cannot
+// for time_point argument - otherwise the default one takes TimePoint& of which time_point is the base class and so cannot
 // be downcast.
-using Time = std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>;
+using TimePoint = std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>;
 
 // these are not really units, couldn't think of a better name
 
@@ -32,10 +32,12 @@ struct Distance {
 
     Distance operator+=(const Distance &other) {
         val += other.val;
+        return *this;
     }
 
     Distance operator-=(const Distance &other) {
         val -= other.val;
+        return *this;
     }
 
     bool operator<(const Distance& other) const {
@@ -119,12 +121,16 @@ struct Coordinate {
 struct Position {
     Coordinate x; // distance from the left edge of the viewport
     Coordinate y; // distance from the top edge of the viewport
+
+    Distance operator-(const Position& other) const {
+        return { static_cast<float>(std::sqrt(std::pow((other.x - x).val, 2) + std::pow((other.y - y).val, 2))) };
+    }
 };
 
 /// per millisecond, positive is down
 struct Speed {
     /// speed * time = distance
-    Distance operator*(Time::duration duration) const {
+    Distance operator*(TimePoint::duration duration) const {
         return val * duration.count();
     }
 
@@ -175,7 +181,7 @@ struct Speed {
 struct Acceleration {
     constexpr Acceleration(Speed speed) : speed{speed} {}
 
-    Speed operator*(Time::duration delta) const {
+    Speed operator*(TimePoint::duration delta) const {
         return Speed{speed.val * delta.count()};
     }
 

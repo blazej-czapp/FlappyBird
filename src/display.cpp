@@ -6,11 +6,13 @@
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
 
-const std::string Display::FEED_NAME = "Original";
+const std::string VideoFeed::FEED_NAME = "Original";
 
 // HSV filters to capture the bird and the pipes
-int BIRD_LOW_H = 121;
-int BIRD_HIGH_H = 180;
+// int BIRD_LOW_H = 121;
+// int BIRD_HIGH_H = 180;
+int BIRD_LOW_H = 0;
+int BIRD_HIGH_H = 4;
 
 int BIRD_LOW_S = 165;
 int BIRD_HIGH_S = 255;
@@ -18,10 +20,14 @@ int BIRD_HIGH_S = 255;
 int BIRD_LOW_V = 110;
 int BIRD_HIGH_V = 255;
 
-int PIPES_LOW_H = 7;
-int PIPES_HIGH_H = 88;
+// int PIPES_LOW_H = 7;
+// int PIPES_HIGH_H = 88;
+int PIPES_LOW_H = 31;
+int PIPES_HIGH_H = 50;
 
-int PIPES_LOW_S = 9;
+// int PIPES_LOW_S = 9;
+// int PIPES_HIGH_S = 255;
+int PIPES_LOW_S = 47;
 int PIPES_HIGH_S = 255;
 
 int PIPES_LOW_V = 43;
@@ -39,15 +45,15 @@ const static std::string UNIT_LENGTH_KEY = "unit_length";
 
 void mouseCallback(int event, int x, int y, int /*flags*/, void* userdata) {
     if (event == cv::EVENT_LBUTTONDOWN) {
-        static_cast<Display *>(userdata)->mouseClick(x, y);
+        static_cast<VideoFeed *>(userdata)->mouseClick(x, y);
     }
 }
 
-Display::Display(VideoSource& source) : m_source(source) {
+VideoFeed::VideoFeed(VideoSource& source) : m_source(source) {
     cv::namedWindow(FEED_NAME);
     cv::setMouseCallback(FEED_NAME, mouseCallback, this);
     loadBoundaries();
-    cv::namedWindow("Pipe Control", CV_WINDOW_AUTOSIZE); //create a window called "Control"
+    cv::namedWindow("Pipe Control", cv::WINDOW_AUTOSIZE); //create a window called "Control"
 
     // //Create trackbars in "Control" window
     cv::createTrackbar("LowH", "Pipe Control", &PIPES_LOW_H, 180); //Hue (0 - 180)
@@ -59,7 +65,7 @@ Display::Display(VideoSource& source) : m_source(source) {
     cv::createTrackbar("LowV", "Pipe Control", &PIPES_LOW_V, 255); //Value (0 - 255)
     cv::createTrackbar("HighV", "Pipe Control", &PIPES_HIGH_V, 255);
 
-    cv::namedWindow("Driver Control", CV_WINDOW_AUTOSIZE); //create a window called "Control"
+    cv::namedWindow("Driver Control", cv::WINDOW_AUTOSIZE); //create a window called "Control"
 
     // //Create trackbars in "Control" window
     cv::createTrackbar("LowH", "Driver Control", &BIRD_LOW_H, 180); //Hue (0 - 180)
@@ -76,7 +82,7 @@ Display::Display(VideoSource& source) : m_source(source) {
     cv::createTrackbar("Closing", "Driver Control", &MORPHOLOGICAL_CLOSING_THRESHOLD, 80);
 }
 
-Display::~Display() {}
+VideoFeed::~VideoFeed() {}
 
 void openClose(const cv::Mat& imgHsvIn, cv::Mat& imgOut, int lowH, int highH, int lowS, int highS, int lowV, int highV) {
     cv::inRange(imgHsvIn, cv::Scalar(lowH, lowS, lowV), cv::Scalar(highH, highS, highV), imgOut); //Threshold the image
@@ -94,15 +100,15 @@ void openClose(const cv::Mat& imgHsvIn, cv::Mat& imgOut, int lowH, int highH, in
                                                                                 MORPHOLOGICAL_CLOSING_THRESHOLD)));
 }
 
-void Display::captureFrame() {
+void VideoFeed::captureFrame() {
     m_currentFrame = m_source.get().captureFrame().clone();
 }
 
-void Display::show() const {
+void VideoFeed::show() const {
     cv::imshow(FEED_NAME, m_currentFrame);
 }
 
-void Display::threshold(cv::Mat& thresholdedBird, cv::Mat& thresholdedWorld) const {
+void VideoFeed::threshold(cv::Mat& thresholdedBird, cv::Mat& thresholdedWorld) const {
     static cv::Mat imgHSV;
 
     cv::cvtColor(m_currentFrame, imgHSV, cv::COLOR_BGR2HSV); //Convert the captured frame from BGR to HSV
@@ -115,16 +121,20 @@ void Display::threshold(cv::Mat& thresholdedBird, cv::Mat& thresholdedWorld) con
     cv::imshow("Combined", imgCombined); //TODO a bit cheeky to be displaying something in threshold()...
 }
 
-void Display::mark(cv::Point loc, cv::Scalar color) {
+void VideoFeed::mark(cv::Point loc, cv::Scalar color) {
     cv::line(m_currentFrame, cv::Point(loc.x - 20, loc.y), cv::Point(loc.x + 20, loc.y), color, 2);
     cv::line(m_currentFrame, cv::Point(loc.x, loc.y - 20), cv::Point(loc.x, loc.y + 20), color, 2);
 }
 
-void Display::circle(Position center, Distance radius, cv::Scalar color) {
+void VideoFeed::circle(Position center, Distance radius, cv::Scalar color) {
     cv::circle(m_currentFrame, positionToPixel(center), distanceToPixels(radius), color, 2);
 }
 
-void Display::mouseClick(int x, int y) {
+void VideoFeed::filledCircle(Position center, Distance radius, cv::Scalar color) {
+    cv::circle(m_currentFrame, positionToPixel(center), distanceToPixels(radius), color, cv::FILLED);
+}
+
+void VideoFeed::mouseClick(int x, int y) {
     m_boundariesKnown = false;
     // viewport boundaries are for active area, probably not the whole frame (e.g. excluding stuff around the tablet)
     switch (m_currentClick) {
@@ -164,13 +174,13 @@ void Display::mouseClick(int x, int y) {
     }
 }
 
-void Display::saveBoundaries() const {
+void VideoFeed::saveBoundaries() const {
     cv::FileStorage fs(BOUNDARIES_FILE, cv::FileStorage::WRITE);
     serialise(fs);
     fs.release();
 }
 
-void Display::loadBoundaries() {
+void VideoFeed::loadBoundaries() {
     cv::FileStorage fs(BOUNDARIES_FILE, cv::FileStorage::READ);
     if (fs.isOpened()) {
         deserialise(fs);
@@ -178,7 +188,7 @@ void Display::loadBoundaries() {
     fs.release();
 }
 
-void Display::deserialise(cv::FileStorage& storage) {
+void VideoFeed::deserialise(cv::FileStorage& storage) {
     storage[BOTTOM_LEFT_KEY] >> m_frameBottomLeft;
     storage[BOTTOM_RIGHT_KEY] >> m_frameBottomRight;
     storage[VIEWPORT_HEIGHT_KEY] >> m_frameHeight;
@@ -186,7 +196,7 @@ void Display::deserialise(cv::FileStorage& storage) {
     m_boundariesKnown = true;
 }
 
-void Display::serialise(cv::FileStorage& storage) const {
+void VideoFeed::serialise(cv::FileStorage& storage) const {
     assert(boundariesKnown());
     storage << BOTTOM_LEFT_KEY << m_frameBottomLeft << BOTTOM_RIGHT_KEY << m_frameBottomRight
             << VIEWPORT_HEIGHT_KEY << m_frameHeight << UNIT_LENGTH_KEY << m_unitLength;

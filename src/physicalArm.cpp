@@ -1,15 +1,15 @@
-#include "arm.hpp"
+#include "physicalArm.hpp"
 #include <iostream>
 #include <k8055.h>
 #include <unistd.h>
 #include <assert.h>
 
-// this was required in C++14, no longer so in C++17 but for educational value: Arm::TAP_COOLDOWN is ODR-used
+// this was required in C++14, no longer so in C++17 but for educational value: PhysicalArm::TAP_COOLDOWN is ODR-used
 // in driver.cpp so even though this is initialised in the class, a definition in the compilation unit was
 // still required (although:
 //     "(...) an object is odr-used if its value is read (unless it is a compile time constant)(...)
 // so I'm not sure why this is actually ODR-used)
-//constexpr std::chrono::milliseconds Arm::TAP_COOLDOWN;
+//constexpr std::chrono::milliseconds PhysicalArm::TAP_COOLDOWN;
 
 constexpr long ADDR_0 = 1u << 0u;
 constexpr long ADDR_1 = 1u << 1u;
@@ -56,29 +56,22 @@ bool initArm() {
     return status >= 0;
 }
 
-// time it takes for the arm to become ready (lift?) after tap. May need calibration.
-constexpr static std::chrono::microseconds RAMP_DOWN{60000};
-
-// Ramp up plus clear digital plus ramp down must be less than Arm::TAP_COOLDOWN or we'll either
-// start dropping taps or have to wait for the arm to finish, whichever way we decide to implement tap().
-// We don't know how long ClearAllDigital() takes so this is just a very crude sanity check.
-static_assert(std::chrono::duration_cast<std::chrono::microseconds>(Arm::TAP_COOLDOWN) > Arm::TAP_DELAY + RAMP_DOWN);
-
-void executeTap() {
+template<typename Duration>
+void executeTap(Duration tapDelay, Duration liftDelay) {
     SetAllDigital();
-    usleep(std::chrono::duration_cast<std::chrono::microseconds>(Arm::TAP_DELAY).count());
+    usleep(std::chrono::duration_cast<std::chrono::microseconds>(tapDelay).count());
     ClearAllDigital();
-    usleep(RAMP_DOWN.count());
+    usleep(std::chrono::duration_cast<std::chrono::microseconds>(liftDelay).count());
 }
 
 // this runs under worker thread
-void Arm::listenForTaps() {
+void PhysicalArm::listenForTaps() {
     std::unique_lock<std::mutex> lock(m_mutex);
     while (m_connected) {
         m_handleEvent.wait(lock, [&]() { return m_tapPending || !m_connected; });
 
         if (m_tapPending) {
-            executeTap();
+            executeTap(tapDelay(), liftDelay());
             m_tapPending = false;
         } else {
             assert(!m_connected);
@@ -89,9 +82,9 @@ void Arm::listenForTaps() {
 
 // Initialising the arm in the initializer list so that m_connected is correct right away.
 // This simplifies listenForTaps() which knows right away if it should listen or bail out.
-Arm::Arm(bool connect) : m_tapPending(false), m_connected(connect && initArm()), m_workerThread(&Arm::listenForTaps, this) {}
+PhysicalArm::PhysicalArm(bool connect) : m_tapPending(false), m_connected(connect && initArm()), m_workerThread(&PhysicalArm::listenForTaps, this) {}
 
-void Arm::tap() {
+void PhysicalArm::tap() {
     if (!m_connected) {
         return;
     }
@@ -129,7 +122,7 @@ void Arm::tap() {
     m_handleEvent.notify_all(); // get the worker thread to do the tap
 }
 
-Arm::~Arm() {
+PhysicalArm::~PhysicalArm() {
     const bool wasConncted = m_connected;
     {
         // Once we're able to lock m_mutex, we know the worker thread is waiting on the condition variable

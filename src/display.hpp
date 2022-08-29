@@ -8,12 +8,12 @@
 #include "units.hpp"
 #include "VideoSource.hpp"
 
-class Display {
+class VideoFeed { //TODO find better name (or use namespace, Display conflicts with X11)
     static const std::string FEED_NAME;
 
 public:
-    Display(VideoSource& source);
-    virtual ~Display();
+    VideoFeed(VideoSource& source);
+    virtual ~VideoFeed();
 
     void captureFrame();
     void show() const;
@@ -27,9 +27,10 @@ public:
     void threshold(cv::Mat &thresholdedBird, cv::Mat &thresholdedWorld) const;
     void mark(cv::Point loc, cv::Scalar color);
     void circle(Position center, Distance radius, cv::Scalar color);
+    void filledCircle(Position center, Distance radius, cv::Scalar color);
 
     void mouseClick(int x, int y);
-    
+
     int getGroundLevel() const {
         assert(boundariesKnown());
         return m_frameBottomLeft.y;

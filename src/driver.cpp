@@ -6,11 +6,11 @@
 
 #include "util.hpp"
 
-Speed Driver::projectVerticalSpeed(Speed startingSpeed, Time::duration deltaT) {
+Speed Driver::projectVerticalSpeed(Speed startingSpeed, TimePoint::duration deltaT) {
     return startingSpeed + GRAVITY * deltaT;
 }
 
-Motion Driver::predictMotion(Motion motionNow, Time::duration deltaT) {
+Motion Driver::predictMotion(Motion motionNow, TimePoint::duration deltaT) {
     assert(motionNow.verticalSpeed <= TERMINAL_VELOCITY);
     Speed projectedSpeed = projectVerticalSpeed(motionNow.verticalSpeed, deltaT);
 
@@ -19,10 +19,10 @@ Motion Driver::predictMotion(Motion motionNow, Time::duration deltaT) {
         // and apply constant speed from then. We want tvPeriod such that:
         // projectedSpeed - GRAVITY * tvPeriod = TERMINAL_VELOCITY
         // so:
-        Time::duration tvPeriod(static_cast<int>((projectedSpeed - TERMINAL_VELOCITY).val.val / GRAVITY.speed.val.val));
+        TimePoint::duration tvPeriod(static_cast<int>((projectedSpeed - TERMINAL_VELOCITY).val.val / GRAVITY.speed.val.val));
 
         // if we started at terminal velocity, the period should be equal to deltaT, otherwise it should be less
-        assert(Time::duration(0) <= tvPeriod && tvPeriod <= deltaT);
+        assert(TimePoint::duration(0) <= tvPeriod && tvPeriod <= deltaT);
 
         // overall average speed is the weighted average of avg. speed under acceleration and the terminal velocity
         // period that (maybe) follows (proportional to the time each lasted)
@@ -41,8 +41,12 @@ Motion Driver::predictMotion(Motion motionNow, Time::duration deltaT) {
     }
 }
 
-Driver::Driver(Arm& arm, Display& cam) : m_arm{arm}, m_disp{cam},
-        m_groundLevel(cam.pixelYToPosition(cam.getGroundLevel())) {}
+Driver::Driver(Arm& arm, VideoFeed& cam) : m_arm{arm}, m_disp{cam},
+        m_groundLevel(cam.pixelYToPosition(cam.getGroundLevel())) {
+    // simplifies calculations (bestBestClearance()) if we can compute events between time quanta independently
+    //TODO should throw
+    assert(TIME_QUANTUM > m_arm.tapDelay());
+    }
 
 void Driver::markGap(const Gap& gap) const {
     m_disp.mark(m_disp.positionToPixel(gap.lowerLeft), cv::Scalar(255, 0, 0));
@@ -51,74 +55,104 @@ void Driver::markGap(const Gap& gap) const {
     m_disp.mark(m_disp.positionToPixel(gap.upperRight), cv::Scalar(0, 0, 255));
 }
 
-void Driver::takeOver(/*Position birdPos*/) {
+void Driver::takeOver(Position birdPos) {
     // tap immediately so we know when the last tap happened
     m_arm.tap();
-    m_lastTapped = toTime(std::chrono::system_clock::now()) + Arm::TAP_DELAY;
-//    m_birdPosAtLastTap = birdPos;
+    m_lastTapped = toTime(std::chrono::system_clock::now()) + m_arm.tapDelay();
+    m_birdPosAtLastTap = birdPos;
 }
 
-bool Driver::hitsPipe(const Gap& gap, const Position& pos, const Distance& radius) {
-    return pos.x + radius >= (gap.lowerLeft.x - SAFETY_BUFFER)
-           && pos.x - radius <= (gap.lowerRight.x + SAFETY_BUFFER)
-           && (pos.y + radius >= (gap.lowerLeft.y - SAFETY_BUFFER)
-               || pos.y - radius <= (gap.upperLeft.y + SAFETY_BUFFER));
+Distance Driver::pipeClearance(const Gap& gap, const Position& pos) {
+    bool crashed = pos.x + BIRD_RADIUS >= (gap.lowerLeft.x - SAFETY_BUFFER)
+                   && pos.x - BIRD_RADIUS <= (gap.lowerRight.x + SAFETY_BUFFER)
+                   && (pos.y + BIRD_RADIUS >= (gap.lowerLeft.y - SAFETY_BUFFER)
+                    || pos.y - BIRD_RADIUS <= (gap.upperLeft.y + SAFETY_BUFFER));
+
+    if (crashed) {
+        return Distance{0};
+    } else {
+        return std::min(pos - gap.lowerLeft,
+                        std::min(pos - gap.lowerRight,
+                                 std::min(pos - gap.upperLeft, pos - gap.upperRight)));
+    }
 }
 
-bool Driver::hasCrashed(Position pos, const std::pair<std::optional<Gap>, std::optional<Gap>>& gaps) const {
+Distance Driver::minClearance(Position pos, const std::pair<std::optional<Gap>, std::optional<Gap>>& gaps) const {
     if (m_groundLevel < pos.y) {
-        return true;
+        return Distance{0}; // don't bother computing best ground clearance, it's never a problem
     }
 
     assert(!gaps.second || gaps.first);
     if (gaps.second) {
-        return hitsPipe(gaps.first.value(), pos, BIRD_RADIUS) || hitsPipe(gaps.second.value(), pos, BIRD_RADIUS);
+        return std::min(pipeClearance(gaps.first.value(), pos), pipeClearance(gaps.second.value(), pos));
     } else if (gaps.first) {
-        return hitsPipe(gaps.first.value(), pos, BIRD_RADIUS);
+        return pipeClearance(gaps.first.value(), pos);
     } else {
-        return false;
+        return Distance{std::numeric_limits<float>::max()};
     }
 }
 
 Driver::Action Driver::bestAction(Motion motion,
-                                  Time::duration sinceLastTap,
+                                  TimePoint::duration sinceLastTap,
                                   const std::pair<std::optional<Gap>, std::optional<Gap>>& gaps) const {
-    // this could be some score of how good the clearance is rather than just a bool
-    if (hasCrashed(motion.position, gaps)) {
-        return Action::NONE;
+    return bestActionR(motion, sinceLastTap, gaps, Distance{std::numeric_limits<float>::max()}).second;
+}
+
+std::pair<Distance, Driver::Action>
+Driver::bestActionR(Motion motion,
+                    TimePoint::duration sinceLastTap,
+                    const std::pair<std::optional<Gap>, std::optional<Gap>>& gaps,
+                    Distance nearestMissSoFar) const {
+    Distance currentClearance = minClearance(motion.position, gaps);
+    if (currentClearance == Distance{0}) {
+        // we've crashed into something
+        return {Distance{0}, Action::NONE};
     }
 
     if (motion.position.x > m_disp.pixelXToPosition(m_disp.getRightBoundary())) {
-        // whatever brought us here is good
-        return Action::ANY;
+        // we successfully reached the right hand edge of the screen, whatever action brought us here is fine
+        return {nearestMissSoFar, Action::ANY};
     }
 
+    std::pair<Distance, Action> bestIfTap{Distance{0}, Action::NONE};
     // depth-first search
     // try tapping if we're past cooldown
-    if (sinceLastTap > Arm::TAP_COOLDOWN) {
+    if (sinceLastTap > m_arm.liftDelay()) {
         // project to the point of actual tap
-        const Motion atTap = predictMotion(motion, Arm::TAP_DELAY);
+        const Motion atTap = predictMotion(motion, m_arm.tapDelay());
         // then, compute motion from the tap until the next time quantum (with the new speed from tap)
-        const Motion atNextQuantum = predictMotion(atTap.with(JUMP_SPEED), TIME_QUANTUM - Arm::TAP_DELAY);
-        const Action best = bestAction(atNextQuantum, TIME_QUANTUM - Arm::TAP_DELAY, gaps);
-        // if there is a path that leads to success from here, it begins with a tap
-        if (best != Action::NONE) {
-            return Action::TAP;
-        }
+        const Motion atNextQuantum = predictMotion(atTap.with(JUMP_SPEED), TIME_QUANTUM - m_arm.tapDelay());
+        bestIfTap = bestActionR(atNextQuantum, TIME_QUANTUM - m_arm.tapDelay(), gaps,
+                                std::min(nearestMissSoFar, currentClearance));
     }
 
-    // if tap doesn't lead to a success or arm is still on cooldown, try not tapping
-    Action best = bestAction(predictMotion(motion, TIME_QUANTUM), sinceLastTap + TIME_QUANTUM, gaps);
-    // similarly to tap - if there's any successful path down the line, it begins with not tapping here, so return
-    // NO_TAP
-    if (best != Action::NONE) {
-        return Action::NO_TAP;
+    // now try not tapping
+    std::pair<Distance, Action> bestIfNoTap = bestActionR(predictMotion(motion, TIME_QUANTUM), sinceLastTap + TIME_QUANTUM,
+                                                          gaps, std::min(nearestMissSoFar, currentClearance));
+
+    // Whichever action we choose, the best nearest clearance overall is going to be the smallest of:
+    //  - currentClearance
+    //  - nearestMissSoFar
+    //  - nearest clearance of whichever action we choose
+    const Distance smallestIncludingNow = std::min(currentClearance, nearestMissSoFar);
+    if (bestIfTap.first > bestIfNoTap.first) {
+        assert(bestIfTap.second != Action::NONE); // distance would be 0 otherwise
+        return {std::min(smallestIncludingNow, bestIfTap.first), Action::TAP};
+    } else if (bestIfTap.first < bestIfNoTap.first) {
+        assert(bestIfNoTap.second != Action::NONE); // distance would be 0 otherwise
+        return {std::min(smallestIncludingNow, bestIfNoTap.first), Action::NO_TAP};
     } else {
-        return Action::NONE;
+        if (bestIfTap.first == Distance{0}) {
+            // if tap and no-tap are equal and both zero, there's no good path
+            return {Distance{0}, Action::NONE};
+        } else {
+            // otherwise just pick arbitrarily
+            return {std::min(smallestIncludingNow, bestIfNoTap.first), Action::NO_TAP};
+        }
     }
 }
 
-void Driver::drive(const FeatureDetector& detector) {
+void Driver::drive(const FeatureDetector& detector, TimePoint captureStart, TimePoint captureEnd) {
     if (!m_disp.boundariesKnown()) {
         return;
     }
@@ -128,6 +162,7 @@ void Driver::drive(const FeatureDetector& detector) {
         return; // not initialised yet
     }
 
+    TimePoint afterFindBird = toTime(std::chrono::system_clock::now());
     m_disp.circle(birdPos.value(), BIRD_RADIUS, CV_BLUE);
 
     std::pair<std::optional<Gap>, std::optional<Gap>> gaps = detector.findGapsAheadOf(birdPos.value());
@@ -148,24 +183,54 @@ void Driver::drive(const FeatureDetector& detector) {
     // It would be nice to take current time as argument but finding the bird and calculating path takes time (although
     // I haven't measured). For greatest accuracy of the resulting m_lastTapped, let's get our own time from the clock.
     // I guess we could take the clock as argument for testability, but there are no tests anyway :P
-    Time now = toTime(std::chrono::system_clock::now());
+    TimePoint now = toTime(std::chrono::system_clock::now());
     // We know where the bird is right now, we're only interested in computing the current speed.
     // We know when we last tapped and what the speed was at that point (JUMP_SPEED) so we can compute the new speed and
     // just overwrite the position with the detected one.
     // TODO store the position at last tap and verify the projected position is close to the detected one
-    Position dummyPos;
-    Motion startingMotion = predictMotion(Motion{dummyPos, JUMP_SPEED}, now - m_lastTapped).with(birdPos.value());
 
-    if (bestAction(Motion{birdPos.value(), startingMotion.verticalSpeed}, now - m_lastTapped, gaps) == Action::TAP) {
+    if (m_lastTapped >= captureStart) {
+        return; // tap still pending
+    }
+
+    assert(captureStart < now);
+    assert(m_lastTapped <= captureStart); // capture start must be before now
+
+//    std::cout << "detection delay: " << (now - captureEnd).count() << std::endl;
+
+    Position dummyPos;
+    // it takes between 10 and 20ms to capture a frame (mostly around 16ms)
+    // assuming the real frame is captured immediately and those 16ms is some processing and data transfer
+    TimePoint captureTime = captureStart + std::chrono::milliseconds(0); // TODO used to be 12 for webcam
+    // predict speed at capture time, apply detected position
+    Motion captureStartMotion = predictMotion(Motion{dummyPos, JUMP_SPEED}, captureTime - m_lastTapped).with(birdPos.value());
+    // correct position by projecting forward by image processing delay
+    Motion startingMotion = predictMotion(captureStartMotion, now - captureEnd);
+
+    m_disp.filledCircle(startingMotion.position, BIRD_RADIUS, CV_BLUE);
+
+    auto best = bestAction(startingMotion, now - m_lastTapped, gaps);
+
+    if (best == Action::TAP) {
         m_arm.tap();
+//        std::cout << "tap, vertical speed: " << startingMotion.verticalSpeed.val.val
+//                  << ", now: " << std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count()
+//                  << " last tap: " << std::chrono::duration_cast<std::chrono::milliseconds>(m_lastTapped.time_since_epoch()).count()
+//                  << std::endl;
         // arm.tap() starts a new thread which does the tap so let's assume it exits immediately  and so tap delay
         // starts now
-        m_lastTapped = toTime(std::chrono::system_clock::now()) + Arm::TAP_DELAY;
+        m_lastTapped = toTime(std::chrono::system_clock::now()) + m_arm.tapDelay();
+        m_birdPosAtLastTap = predictMotion(startingMotion, m_arm.tapDelay()).position;
+    }
+
+    static int c = 1;
+    if (best == Action::NONE) {
+        std::cout << "COULDN'T FIND PATH! " << ++c << std::endl;
     }
 }
 
 // predicting from recording to calibrate motion constants
-void Driver::predictPosition(const std::vector<std::pair<Time::duration, cv::Mat>>& recording,
+void Driver::predictPosition(const std::vector<std::pair<TimePoint::duration, cv::Mat>>& recording,
                              size_t startFrame,
                              const FeatureDetector& detector,
                              Speed initialSpeed) const {
@@ -174,19 +239,19 @@ void Driver::predictPosition(const std::vector<std::pair<Time::duration, cv::Mat
         return;
     }
 
-    Time::duration startTime(recording[startFrame].first);
+    TimePoint::duration startTime(recording[startFrame].first);
 
     for (size_t i = startFrame + 1; i < recording.size() - 1; ++i) {
         const auto timeDelta = recording[i].first - recording[startFrame].first;
         const Motion projected = predictMotion(Motion{birdPos.value(), initialSpeed}, recording[i].first - startTime);
 
-        std::cout << "" << Time(recording[i].first).time_since_epoch().count() << " " << projected.position.y.val << std::endl;
+        std::cout << "" << TimePoint(recording[i].first).time_since_epoch().count() << " " << projected.position.y.val << std::endl;
     }
 }
 
 // used for calibrating the JUMP_SPEED, GRAVITY and TERMINAL_VELOCITY constants, presumably from a moment of jump
 // (in practice, the true jump start can happen between frames so worth trying this a few times)
-void Driver::predictJump(const std::vector<std::pair<Time::duration, cv::Mat>>& recording,
+void Driver::predictJump(const std::vector<std::pair<TimePoint::duration, cv::Mat>>& recording,
                          size_t startFrame,
                          const FeatureDetector& detector) {
     predictPosition(recording, startFrame, detector, JUMP_SPEED + Speed{0.00005});
@@ -195,7 +260,7 @@ void Driver::predictJump(const std::vector<std::pair<Time::duration, cv::Mat>>& 
 
 // used for calibrating the GRAVITY and TERMINAL_VELOCITY constants, presumably from a standstill point just before freefall
 // (in practice, the true peak can happen between frames so using an estimate for the true speed at the actual frame)
-void Driver::predictFreefall(const std::vector<std::pair<Time::duration, cv::Mat>>& recording,
+void Driver::predictFreefall(const std::vector<std::pair<TimePoint::duration, cv::Mat>>& recording,
                              size_t startFrame,
                              const FeatureDetector& detector) {
     predictPosition(recording, startFrame, detector, Speed{0.00011});

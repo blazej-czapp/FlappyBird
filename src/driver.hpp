@@ -3,6 +3,7 @@
 #include <deque>
 #include <memory>
 #include <chrono>
+#include <variant>
 #include "opencv2/imgproc/imgproc.hpp"
 #include "opencv2/highgui/highgui.hpp"
 #include "arm.hpp"
@@ -20,7 +21,7 @@ class Driver {
 
     // tap just sets a new vertical speed, this may need some more calibration (together with gravity) - because tap
     // happens between frames, I had to estimate the speed at tap by fitting speed and gravity at frame
-    static constexpr Speed JUMP_SPEED{{-0.00139}};
+    static constexpr Speed JUMP_SPEED{{-0.00130}}; // -0.00126 from experiments
     static constexpr Speed TERMINAL_VELOCITY{{0.00198}}; // this should be quite accurate
     static constexpr Acceleration GRAVITY{{0.00000451}}; // position grows down, gravity is positive
 
@@ -28,47 +29,44 @@ class Driver {
 
     // "grow" pipes by this much in all directions for collision detection (should yield safer paths but may cause no
     // path to be found if too large)
-    static constexpr Distance SAFETY_BUFFER{0.02};
+    static constexpr Distance SAFETY_BUFFER{0.00};
 
 public:
-    Driver(Arm& arm, Display& cam);
-    void drive(const FeatureDetector&);
-    void takeOver(/*Position birdPos*/);
+    Driver(Arm& arm, VideoFeed& cam);
+    void drive(const FeatureDetector&, TimePoint captureStart, TimePoint captureEnd);
+    void takeOver(Position birdPos);
 
-    void predictFreefall(const std::vector<std::pair<Time::duration, cv::Mat>>& recording,
+    void predictFreefall(const std::vector<std::pair<TimePoint::duration, cv::Mat>>& recording,
                          size_t startFrame,
                          const FeatureDetector& detector);
 
-    void predictJump(const std::vector<std::pair<Time::duration, cv::Mat>>& recording,
+    void predictJump(const std::vector<std::pair<TimePoint::duration, cv::Mat>>& recording,
                      size_t startFrame,
                      const FeatureDetector& detector);
 
-    void predictPosition(const std::vector<std::pair<Time::duration, cv::Mat>>& recording,
+    void predictPosition(const std::vector<std::pair<TimePoint::duration, cv::Mat>>& recording,
                          size_t startFrame,
                          const FeatureDetector& detector,
                          Speed initialSpeed) const;
 
 private:
-    static constexpr const Time::duration TIME_QUANTUM{150};
-
-    // simplifies calculations (bestAction()) if we can compute events between time quanta independently
-    static_assert(TIME_QUANTUM > Arm::TAP_DELAY);
+    static constexpr const TimePoint::duration TIME_QUANTUM{100};
 
     void markGap(const Gap& gap) const;
 
     Coordinate m_groundLevel;
 
     Arm& m_arm;
-    Display& m_disp;
-    Time m_lastTapped;
-//    Position m_birdPosAtLastTap; // TODO use for debug to compare predicted and actual
+    VideoFeed& m_disp;
+    TimePoint m_lastTapped;
+    Position m_birdPosAtLastTap; // TODO use for debug to compare predicted and actual
 
-    bool hasCrashed(Position pos, const std::pair<std::optional<Gap>, std::optional<Gap>>& gaps) const;
+    Distance minClearance(Position pos, const std::pair<std::optional<Gap>, std::optional<Gap>>& gaps) const;
 
     // should these be free functions? we'd need to make the constants public or pass them directly
-    static Speed projectVerticalSpeed(Speed startingSpeed, Time::duration deltaT);
-    static Motion predictMotion(Motion motionNow, Time::duration deltaT);
-    static bool hitsPipe(const Gap& gap, const Position& pos, const Distance& radius);
+    static Speed projectVerticalSpeed(Speed startingSpeed, TimePoint::duration deltaT);
+    static Motion predictMotion(Motion motionNow, TimePoint::duration deltaT);
+    static Distance pipeClearance(const Gap& gap, const Position& pos);
 
     enum class Action {
         TAP,
@@ -77,11 +75,18 @@ private:
         NONE
     };
 
+    Action bestAction(Motion motion,
+                      TimePoint::duration sinceLastTap,
+                      const std::pair<std::optional<Gap>, std::optional<Gap>>& gaps) const;
+
     /// Given current motion, how can we steer the bird through all visible pipes? Right now 'best' means 'first one
     /// we can find with depth-first-search'.
     /// @param sinceLastTap time from the actual physical tap, not since we last issued a tap request (i.e. takes
     ///                     arm delay into account)
-    Action bestAction(Motion motion,
-                      Time::duration sinceLastTap,
-                      const std::pair<std::optional<Gap>, std::optional<Gap>>& gaps) const;
+    /// @returns the action that achieves the greatest nearest-approach to any obstacle and the distance of that
+    ///          approach (can be {Distance{0}, NONE} if no path can be found from `motion`)
+    std::pair<Distance, Action> bestActionR(Motion motion,
+                                            TimePoint::duration sinceLastTap,
+                                            const std::pair<std::optional<Gap>, std::optional<Gap>>& gaps,
+                                            Distance nearestMissSoFar) const;
 };
