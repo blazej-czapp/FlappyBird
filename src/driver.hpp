@@ -33,7 +33,8 @@ class Driver {
 
 public:
     Driver(Arm& arm, VideoFeed& cam);
-    void drive(const FeatureDetector&, TimePoint captureStart, TimePoint captureEnd);
+    void drive(const std::optional<Position>& birdPos, std::pair<std::optional<Gap>, std::optional<Gap>> gaps,
+               TimePoint captureStart, TimePoint captureEnd);
     void takeOver(Position birdPos);
 
     void predictFreefall(const std::vector<std::pair<TimePoint::duration, cv::Mat>>& recording,
@@ -51,8 +52,6 @@ public:
 
 private:
     static constexpr const TimePoint::duration TIME_QUANTUM{100};
-
-    void markGap(const Gap& gap) const;
 
     Coordinate m_groundLevel;
 

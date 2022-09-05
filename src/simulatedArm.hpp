@@ -1,32 +1,27 @@
 #pragma once
+
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <unistd.h>
 
 class SimulatedArm : public Arm {
 public:
-    SimulatedArm(int x, int y) : m_x(x), m_y(y) {}
+    // taps at position x,y on the x11display
+    SimulatedArm(int x, int y, Display* const x11display) : m_x(x), m_y(y), m_x11display(x11display) {}
 
     std::chrono::milliseconds liftDelay() const override {
-        return 5ms;
+        return 1ms;
     }
 
     std::chrono::milliseconds tapDelay() const override {
-        return 20ms;
+        return 30ms;
     }
 
     void tap() override {
-        Display *display = XOpenDisplay(NULL);
-        Window root = DefaultRootWindow(display);
-        XWarpPointer(display, None, root, 0, 0, 0, 0, m_x, m_y);
+        Window root = DefaultRootWindow(m_x11display);
+        XWarpPointer(m_x11display, None, root, 0, 0, 0, 0, m_x, m_y);
 
         XEvent event;
-
-        if(display == NULL)
-        {
-            fprintf(stderr, "Cannot initialize the display\n");
-            exit(EXIT_FAILURE);
-        }
 
         memset(&event, 0x00, sizeof(event));
 
@@ -34,33 +29,31 @@ public:
         event.xbutton.button = Button1;
         event.xbutton.same_screen = True;
 
-        XQueryPointer(display, RootWindow(display, DefaultScreen(display)), &event.xbutton.root, &event.xbutton.window, &event.xbutton.x_root, &event.xbutton.y_root, &event.xbutton.x, &event.xbutton.y, &event.xbutton.state);
+        XQueryPointer(m_x11display, RootWindow(m_x11display, DefaultScreen(m_x11display)), &event.xbutton.root, &event.xbutton.window, &event.xbutton.x_root, &event.xbutton.y_root, &event.xbutton.x, &event.xbutton.y, &event.xbutton.state);
 
         event.xbutton.subwindow = event.xbutton.window;
 
-        while(event.xbutton.subwindow)
-        {
+        while(event.xbutton.subwindow) {
             event.xbutton.window = event.xbutton.subwindow;
 
-            XQueryPointer(display, event.xbutton.window, &event.xbutton.root, &event.xbutton.subwindow, &event.xbutton.x_root, &event.xbutton.y_root, &event.xbutton.x, &event.xbutton.y, &event.xbutton.state);
+            XQueryPointer(m_x11display, event.xbutton.window, &event.xbutton.root, &event.xbutton.subwindow, &event.xbutton.x_root, &event.xbutton.y_root, &event.xbutton.x, &event.xbutton.y, &event.xbutton.state);
         }
 
-        if(XSendEvent(display, PointerWindow, True, 0xfff, &event) == 0) fprintf(stderr, "Error\n");
+        if (XSendEvent(m_x11display, PointerWindow, True, 0xfff, &event) == 0) fprintf(stderr, "Error\n");
 
-        XFlush(display);
+        XFlush(m_x11display);
 
-        usleep(1000);
+        usleep(std::chrono::duration_cast<std::chrono::microseconds>(liftDelay()).count());
 
         event.type = ButtonRelease;
         event.xbutton.state = 0x100;
 
-        if(XSendEvent(display, PointerWindow, True, 0xfff, &event) == 0) fprintf(stderr, "Error\n");
+        if (XSendEvent(m_x11display, PointerWindow, True, 0xfff, &event) == 0) fprintf(stderr, "Error\n");
 
-        XFlush(display);
-
-        XCloseDisplay(display); //TODO needed?
+        XFlush(m_x11display);
     }
 
 private:
     int m_x, m_y;
+    Display* const m_x11display;
 };

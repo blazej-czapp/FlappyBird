@@ -1,9 +1,10 @@
-#ifndef FLAPPYBIRD_VIDEOSOURCE_HPP
-#define FLAPPYBIRD_VIDEOSOURCE_HPP
+#pragma once
 
 class VideoSource {
 public:
     virtual const cv::Mat& captureFrame() = 0;
-};
 
-#endif //FLAPPYBIRD_VIDEOSOURCE_HPP
+    // assuming the real frame is captured immediately at captureFrame(), how much time does processing and data
+    // transfer take?
+    virtual std::chrono::milliseconds postCaptureProcessingTime() const = 0;
+};

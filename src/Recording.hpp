@@ -176,6 +176,11 @@ public:
         return m_frames[m_currentPlaybackFrame].second;
     }
 
+    std::chrono::milliseconds postCaptureProcessingTime() const override {
+        using namespace std::literals::chrono_literals;
+        return 1ms; // not measured, shouldn't matter
+    }
+
     void reset() {
         m_state = IDLE;
         m_frames.clear();
@@ -183,7 +188,7 @@ public:
         m_currentPlaybackFrame = 0;
     }
 
-//private: commented out for calibration
+private:
     // time is from the start of the recording
     std::vector<std::pair<TimePoint::duration, cv::Mat>> m_frames;
     TimePoint m_currentFrameStart = NO_FRAME_START;

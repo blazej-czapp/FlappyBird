@@ -27,3 +27,13 @@ inline bool approxEqual(float a, float b, float e = 0.e-4f) {
 inline TimePoint toTime(std::chrono::system_clock::time_point&& point) {
     return std::chrono::time_point_cast<TimePoint::duration>(point);
 }
+
+class RAIICloser {
+public:
+    RAIICloser(std::function<void()> closer) : m_closer(closer) {}
+    ~RAIICloser() {
+        m_closer();
+    }
+private:
+    std::function<void()> m_closer;
+};

@@ -67,6 +67,16 @@ std::optional<Gap> FeatureDetector::getGapAt(int x) const {
     gap.upperLeft.x -= slack / 2;
     gap.upperRight.x += slack / 2;
 
+    const Distance offset{-0.015f};
+    gap.lowerLeft.x += offset;
+    gap.lowerRight.x += offset;
+    gap.upperLeft.x += offset;
+    gap.upperRight.x += offset;
+
+    const Distance vertOffset{-0.01f};
+    gap.lowerLeft.y += vertOffset;
+    gap.lowerRight.y += vertOffset;
+
     return std::move(gap);
 }
 
@@ -134,7 +144,10 @@ std::optional<Position> FeatureDetector::findBird() const {
         //calculate the m_position of the ball
         int posX = dM10 / dArea;
         int posY = dM01 / dArea;
-        return {m_display.pixelToPosition(cv::Point(posX, posY))};
+        Position pos = m_display.pixelToPosition(cv::Point(posX, posY));
+        pos.x.val += 0.01;
+
+        return pos;
     }
 
     return {};

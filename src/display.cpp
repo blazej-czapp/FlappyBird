@@ -106,9 +106,10 @@ void VideoFeed::captureFrame() {
 
 void VideoFeed::show() const {
     cv::imshow(FEED_NAME, m_currentFrame);
+    cv::imshow("Combined", m_imgCombined);
 }
 
-void VideoFeed::threshold(cv::Mat& thresholdedBird, cv::Mat& thresholdedWorld) const {
+void VideoFeed::threshold(cv::Mat& thresholdedBird, cv::Mat& thresholdedWorld) {
     static cv::Mat imgHSV;
 
     cv::cvtColor(m_currentFrame, imgHSV, cv::COLOR_BGR2HSV); //Convert the captured frame from BGR to HSV
@@ -116,9 +117,7 @@ void VideoFeed::threshold(cv::Mat& thresholdedBird, cv::Mat& thresholdedWorld) c
     openClose(imgHSV, thresholdedBird, BIRD_LOW_H, BIRD_HIGH_H, BIRD_LOW_S, BIRD_HIGH_S, BIRD_LOW_V, BIRD_HIGH_V);
     openClose(imgHSV, thresholdedWorld, PIPES_LOW_H, PIPES_HIGH_H, PIPES_LOW_S, PIPES_HIGH_S, PIPES_LOW_V, PIPES_HIGH_V);
 
-    static cv::Mat imgCombined;
-    imgCombined = thresholdedWorld + thresholdedBird;
-    cv::imshow("Combined", imgCombined); //TODO a bit cheeky to be displaying something in threshold()...
+    m_imgCombined = thresholdedWorld + thresholdedBird;
 }
 
 void VideoFeed::mark(cv::Point loc, cv::Scalar color) {

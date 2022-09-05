@@ -48,13 +48,6 @@ Driver::Driver(Arm& arm, VideoFeed& cam) : m_arm{arm}, m_disp{cam},
     assert(TIME_QUANTUM > m_arm.tapDelay());
     }
 
-void Driver::markGap(const Gap& gap) const {
-    m_disp.mark(m_disp.positionToPixel(gap.lowerLeft), cv::Scalar(255, 0, 0));
-    m_disp.mark(m_disp.positionToPixel(gap.lowerRight), cv::Scalar(255, 0, 0));
-    m_disp.mark(m_disp.positionToPixel(gap.upperLeft), cv::Scalar(0, 0, 255));
-    m_disp.mark(m_disp.positionToPixel(gap.upperRight), cv::Scalar(0, 0, 255));
-}
-
 void Driver::takeOver(Position birdPos) {
     // tap immediately so we know when the last tap happened
     m_arm.tap();
@@ -152,28 +145,17 @@ Driver::bestActionR(Motion motion,
     }
 }
 
-void Driver::drive(const FeatureDetector& detector, TimePoint captureStart, TimePoint captureEnd) {
+void Driver::drive(const std::optional<Position>& birdPos, std::pair<std::optional<Gap>, std::optional<Gap>> gaps,
+                   TimePoint captureStart, TimePoint captureEnd) {
     if (!m_disp.boundariesKnown()) {
         return;
     }
 
-    std::optional<Position> birdPos = detector.findBird();
     if (!birdPos) {
         return; // not initialised yet
     }
 
     TimePoint afterFindBird = toTime(std::chrono::system_clock::now());
-    m_disp.circle(birdPos.value(), BIRD_RADIUS, CV_BLUE);
-
-    std::pair<std::optional<Gap>, std::optional<Gap>> gaps = detector.findGapsAheadOf(birdPos.value());
-    assert(!gaps.second || gaps.first); // detecting the right but not the left gap would be unexpected
-
-    if (gaps.first) {
-        markGap(gaps.first.value());
-    }
-    if (gaps.second) {
-        markGap(gaps.second.value());
-    }
 
     if (!gaps.first && !gaps.second) {
         // presumably at the beginning - maintain altitude?
@@ -199,9 +181,7 @@ void Driver::drive(const FeatureDetector& detector, TimePoint captureStart, Time
 //    std::cout << "detection delay: " << (now - captureEnd).count() << std::endl;
 
     Position dummyPos;
-    // it takes between 10 and 20ms to capture a frame (mostly around 16ms)
-    // assuming the real frame is captured immediately and those 16ms is some processing and data transfer
-    TimePoint captureTime = captureStart + std::chrono::milliseconds(0); // TODO used to be 12 for webcam
+    TimePoint captureTime = captureStart + m_disp.postCaptureProcessingTime();
     // predict speed at capture time, apply detected position
     Motion captureStartMotion = predictMotion(Motion{dummyPos, JUMP_SPEED}, captureTime - m_lastTapped).with(birdPos.value());
     // correct position by projecting forward by image processing delay

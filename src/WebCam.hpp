@@ -22,6 +22,10 @@ public:
         return m_currentFrame;
     }
 
+    std::chrono::milliseconds postCaptureProcessingTime() const override{
+        return 12ms; // guessed
+    }
+
 private:
     cv::VideoCapture m_cap{-1};
     cv::Mat m_currentFrame;
