@@ -10,14 +10,15 @@ public:
     SimulatedArm(int x, int y, Display* const x11display) : m_x(x), m_y(y), m_x11display(x11display) {}
 
     std::chrono::milliseconds liftDelay() const override {
-        return 1ms;
+        return SIMULATED_ARM_LIFT_DELAY;
     }
 
     std::chrono::milliseconds tapDelay() const override {
-        return 30ms;
+        return SIMULATED_ARM_TAP_DELAY;
     }
 
     void tap() override {
+
         Window root = DefaultRootWindow(m_x11display);
         XWarpPointer(m_x11display, None, root, 0, 0, 0, 0, m_x, m_y);
 
@@ -43,7 +44,7 @@ public:
 
         XFlush(m_x11display);
 
-        usleep(std::chrono::duration_cast<std::chrono::microseconds>(liftDelay()).count());
+        usleep(std::chrono::duration_cast<std::chrono::microseconds>(tapDelay()).count());
 
         event.type = ButtonRelease;
         event.xbutton.state = 0x100;

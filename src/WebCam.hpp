@@ -23,7 +23,7 @@ public:
     }
 
     std::chrono::milliseconds postCaptureProcessingTime() const override{
-        return 12ms; // guessed
+        return WEBCAM_POST_CAPTURE_PROCESSING_TIME;
     }
 
 private:

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <chrono>
+#include <cmath>
 
 // Doing this as `struct TimePoint : public std::chrono::time_point...` would be nice because we could create some convenient
 // constructors but has the disadvantage that e.g. operator=() (and potentially others) has to be implemented explicitly

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "arm.hpp"
+#include "constants.hpp"
 
 #include <chrono>
 #include <condition_variable>
@@ -19,13 +20,11 @@ public:
     ~PhysicalArm();
 
     std::chrono::milliseconds liftDelay() const override {
-        // TODO could probably be lower but I'm getting too many taps right now, so limiting spam
-        return 50ms;
+        return PHYSICAL_ARM_LIFT_DELAY;
     }
 
     std::chrono::milliseconds tapDelay() const override {
-        // going much lower than this causes the arm to be lifted too quickly and the tablet doesn't register the tap
-        return 70ms;
+        return PHYSICAL_ARM_TAP_DELAY;
     }
 
 private:

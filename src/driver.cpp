@@ -1,10 +1,11 @@
 #include "driver.hpp"
 
+#include "util.hpp"
+#include "constants.hpp"
+
 #include <iostream>
 #include <deque>
 #include <chrono>
-
-#include "util.hpp"
 
 Speed Driver::projectVerticalSpeed(Speed startingSpeed, TimePoint::duration deltaT) {
     return startingSpeed + GRAVITY * deltaT;
@@ -45,7 +46,7 @@ Driver::Driver(Arm& arm, VideoFeed& cam) : m_arm{arm}, m_disp{cam},
         m_groundLevel(cam.pixelYToPosition(cam.getGroundLevel())) {
     // simplifies calculations (bestBestClearance()) if we can compute events between time quanta independently
     //TODO should throw
-    assert(TIME_QUANTUM > m_arm.tapDelay());
+    assert(SIMULATION_TIME_QUANTUM > m_arm.tapDelay());
     }
 
 void Driver::takeOver(Position birdPos) {
@@ -114,13 +115,13 @@ Driver::bestActionR(Motion motion,
         // project to the point of actual tap
         const Motion atTap = predictMotion(motion, m_arm.tapDelay());
         // then, compute motion from the tap until the next time quantum (with the new speed from tap)
-        const Motion atNextQuantum = predictMotion(atTap.with(JUMP_SPEED), TIME_QUANTUM - m_arm.tapDelay());
-        bestIfTap = bestActionR(atNextQuantum, TIME_QUANTUM - m_arm.tapDelay(), gaps,
+        const Motion atNextQuantum = predictMotion(atTap.with(JUMP_SPEED), SIMULATION_TIME_QUANTUM - m_arm.tapDelay());
+        bestIfTap = bestActionR(atNextQuantum, SIMULATION_TIME_QUANTUM - m_arm.tapDelay(), gaps,
                                 std::min(nearestMissSoFar, currentClearance));
     }
 
     // now try not tapping
-    std::pair<Distance, Action> bestIfNoTap = bestActionR(predictMotion(motion, TIME_QUANTUM), sinceLastTap + TIME_QUANTUM,
+    std::pair<Distance, Action> bestIfNoTap = bestActionR(predictMotion(motion, SIMULATION_TIME_QUANTUM), sinceLastTap + SIMULATION_TIME_QUANTUM,
                                                           gaps, std::min(nearestMissSoFar, currentClearance));
 
     // Whichever action we choose, the best nearest clearance overall is going to be the smallest of:

@@ -10,6 +10,7 @@
 #include "WebCam.hpp"
 #include "ScreenCapture.hpp"
 #include "simulatedArm.hpp"
+#include "constants.hpp"
 
 void markGap(const Gap& gap, VideoFeed& display) {
     display.mark(display.positionToPixel(gap.lowerLeft), cv::Scalar(255, 0, 0));
@@ -87,7 +88,7 @@ int main(int argc, char** argv) {
             std::pair<std::optional<Gap>, std::optional<Gap>> gaps;
             if (birdPos) {
                 // TODO driver will call detector again, so the results might differ or at least delay the whole thing - pass results to driver?
-                display.circle(birdPos.value(), Driver::BIRD_RADIUS, CV_BLUE);
+                display.circle(birdPos.value(), BIRD_RADIUS, CV_BLUE);
 
                 gaps = detector.findGapsAheadOf(birdPos.value());
                 assert(!gaps.second || gaps.first); // detecting the right but not the left gap would be unexpected

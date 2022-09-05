@@ -13,6 +13,7 @@ class ScreenCapture : public VideoSource {
 public:
     ScreenCapture(Display* const x11display) : m_x11display(x11display) {}
     const cv::Mat& captureFrame() override {
+
         Window root = DefaultRootWindow(m_x11display);
 
         // viewport into the Android emulator, screen coordinates can be found using:
@@ -35,7 +36,7 @@ public:
     }
 
     std::chrono::milliseconds postCaptureProcessingTime() const override{
-        return 2ms; //TODO measure
+        return SCREEN_POST_CAPTURE_PROCESSING_TIME;
     }
 
 private:

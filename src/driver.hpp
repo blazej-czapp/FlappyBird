@@ -13,23 +13,6 @@
 #include "util.hpp"
 
 class Driver {
-    // it takes approx 1.632s to cover the unit distance, speed is per millisecond
-    static constexpr Speed HORIZONTAL_SPEED{{1.f/1632}};
-
-    // constants calibrated using calibration_recording.xml and calibration_boundaries.txt (the boundaries were from
-    // a different recording and the screen is a touch wider than the boundaries, may need to tweak that and recalibrate)
-
-    // tap just sets a new vertical speed, this may need some more calibration (together with gravity) - because tap
-    // happens between frames, I had to estimate the speed at tap by fitting speed and gravity at frame
-    static constexpr Speed JUMP_SPEED{{-0.00130}}; // -0.00126 from experiments
-    static constexpr Speed TERMINAL_VELOCITY{{0.00198}}; // this should be quite accurate
-    static constexpr Acceleration GRAVITY{{0.00000451}}; // position grows down, gravity is positive
-
-    static constexpr Distance BIRD_RADIUS{0.06f};
-
-    // "grow" pipes by this much in all directions for collision detection (should yield safer paths but may cause no
-    // path to be found if too large)
-    static constexpr Distance SAFETY_BUFFER{0.00};
 
 public:
     Driver(Arm& arm, VideoFeed& cam);
@@ -51,7 +34,6 @@ public:
                          Speed initialSpeed) const;
 
 private:
-    static constexpr const TimePoint::duration TIME_QUANTUM{100};
 
     Coordinate m_groundLevel;
 

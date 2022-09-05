@@ -10,7 +10,6 @@
 static constexpr Distance PIPE_SPACING{0.45}; // rough distance between adjacent pipe edges
 constexpr int SEARCH_WINDOW_SIZE = 40;
 constexpr Distance PIPE_WIDTH{0.237f};
-// constexpr Distance GAP_HEIGHT{0.460f};
 constexpr Distance GAP_HEIGHT{0.480f};
 constexpr int WHITE = 255;
 constexpr int BLACK = 0;
