@@ -21,5 +21,7 @@ src/featureDetector.cpp
 src/util.hpp
 src/units.hpp src/Recording.hpp src/Recording.cpp src/VideoSource.hpp src/WebCam.hpp)
 
+target_compile_options(FlappyBird PRIVATE -O3)
+
 # ${OPENCV_LIBRARIES} as found by pkg_check_modules()
 target_link_libraries(FlappyBird k8055 usb pthread ${OpenCV_LIBS} ${X11_LIBRARIES})
