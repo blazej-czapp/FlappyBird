@@ -12,6 +12,8 @@ include_directories( ${OpenCV_INCLUDE_DIRS} ${X11_INCLUDE_DIR})
 
 include_directories(.)
 
+add_compile_definitions(NDEBUG)
+
 add_executable(FlappyBird
 src/physicalArm.cpp
 src/driver.cpp
