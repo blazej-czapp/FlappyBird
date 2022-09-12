@@ -3,25 +3,84 @@
 #include "util.hpp"
 
 #include "opencv2/imgproc/imgproc.hpp"
+#include "opencv2/highgui/highgui.hpp"
 
 #include <assert.h>
 #include <iostream>
 
 static constexpr Distance PIPE_SPACING{0.45}; // rough distance between adjacent pipe edges
 constexpr int SEARCH_WINDOW_SIZE = 40;
-constexpr Distance PIPE_WIDTH{0.237f};
-constexpr Distance GAP_HEIGHT{0.480f};
+constexpr Distance PIPE_WIDTH{0.254f};
+constexpr Distance GAP_HEIGHT{0.490f};
 constexpr int WHITE = 255;
 constexpr int BLACK = 0;
 
-FeatureDetector::FeatureDetector(const cv::Mat &map, const cv::Mat &bird, VideoFeed &disp) :
-        m_thresholdedMap{map}, m_thresholdedBird{bird}, m_display{disp}, m_lowSweepY{disp.getGroundLevel() - 10},
+// HSV filters to capture the bird and the pipes
+// int BIRD_LOW_H = 121;
+// int BIRD_HIGH_H = 180;
+int BIRD_LOW_H = 0;
+int BIRD_HIGH_H = 4;
+
+int BIRD_LOW_S = 165;
+int BIRD_HIGH_S = 255;
+
+int BIRD_LOW_V = 110;
+int BIRD_HIGH_V = 255;
+
+// int PIPES_LOW_H = 7;
+// int PIPES_HIGH_H = 88;
+int PIPES_LOW_H = 31;
+int PIPES_HIGH_H = 50;
+
+// int PIPES_LOW_S = 9;
+// int PIPES_HIGH_S = 255;
+int PIPES_LOW_S = 47;
+int PIPES_HIGH_S = 255;
+
+int PIPES_LOW_V = 43;
+int PIPES_HIGH_V = 255;
+
+int MORPHOLOGICAL_OPENING_THRESHOLD = 3;
+int MORPHOLOGICAL_CLOSING_THRESHOLD = 20; // high values slow things down
+
+FeatureDetector::FeatureDetector(VideoFeed &disp) :
+        m_display{disp}, m_lowSweepY{disp.getGroundLevel() - 10},
         m_pipeWidth(disp.distanceToPixels(PIPE_WIDTH)),
-        m_gapHeight(disp.distanceToPixels(GAP_HEIGHT)) {}
+        m_gapHeight(disp.distanceToPixels(GAP_HEIGHT)) {
+    #ifdef CALIBRATING_DETECTOR
+    cv::namedWindow("Pipe Control", cv::WINDOW_AUTOSIZE); //create a window called "Control"
+
+    // //Create trackbars in "Control" window
+    cv::createTrackbar("LowH", "Pipe Control", &PIPES_LOW_H, 180); //Hue (0 - 180)
+    cv::createTrackbar("HighH", "Pipe Control", &PIPES_HIGH_H, 180);
+
+    cv::createTrackbar("LowS", "Pipe Control", &PIPES_LOW_S, 255); //Saturation (0 - 255)
+    cv::createTrackbar("HighS", "Pipe Control", &PIPES_HIGH_S, 255);
+
+    cv::createTrackbar("LowV", "Pipe Control", &PIPES_LOW_V, 255); //Value (0 - 255)
+    cv::createTrackbar("HighV", "Pipe Control", &PIPES_HIGH_V, 255);
+
+    cv::namedWindow("Driver Control", cv::WINDOW_AUTOSIZE); //create a window called "Control"
+
+    //Create trackbars in "Control" window
+    cv::createTrackbar("LowH", "Driver Control", &BIRD_LOW_H, 180); //Hue (0 - 180)
+    cv::createTrackbar("HighH", "Driver Control", &BIRD_HIGH_H, 180);
+
+    cv::createTrackbar("LowS", "Driver Control", &BIRD_LOW_S, 255); //Saturation (0 - 255)
+    cv::createTrackbar("HighS", "Driver Control", &BIRD_HIGH_S, 255);
+
+    cv::createTrackbar("LowV", "Driver Control", &BIRD_LOW_V, 255); //Value (0 - 255)
+    cv::createTrackbar("HighV", "Driver Control", &BIRD_HIGH_V, 255);
+
+    // //Create trackbars in "Control" window
+    cv::createTrackbar("Opening", "Driver Control", &MORPHOLOGICAL_OPENING_THRESHOLD, 40);
+    cv::createTrackbar("Closing", "Driver Control", &MORPHOLOGICAL_CLOSING_THRESHOLD, 80);
+#endif // CALIBRATING_DETECTOR
+}
 
 int FeatureDetector::lookUp(int x, int y, int lookFor) const {
     for (int row = y; row > 0; --row) {
-        if (m_thresholdedMap.ptr<uchar>(row)[x] == lookFor) {
+        if (m_thresholdedWorld.ptr<uchar>(row)[x] == lookFor) {
             return row;
         }
     }
@@ -33,7 +92,7 @@ int FeatureDetector::lookLeft(int x, int y, int lookFor) const {
     // 1.1 just in case we're exactly at the right edge
     for (int i = x; i > x - m_pipeWidth * 1.1; --i) {
         // assuming no noise inside a pipe
-        if (m_thresholdedMap.ptr<uchar>(y)[i] == lookFor) {
+        if (m_thresholdedWorld.ptr<uchar>(y)[i] == lookFor) {
             return i;
         }
     }
@@ -42,7 +101,7 @@ int FeatureDetector::lookLeft(int x, int y, int lookFor) const {
 }
 
 std::optional<Gap> FeatureDetector::getGapAt(int x) const {
-    WARN_UNLESS(m_thresholdedMap.ptr<uchar>(m_lowSweepY)[x] == WHITE, "looking for a gap at a non-white pixel");
+    WARN_UNLESS(m_thresholdedWorld.ptr<uchar>(m_lowSweepY)[x] == WHITE, "looking for a gap at a non-white pixel");
     const int gapY = lookUp(x, m_lowSweepY, BLACK); // find the bottom of the gap above
     const int gapLeftX = lookLeft(x, m_lowSweepY, BLACK);
 
@@ -79,10 +138,9 @@ std::optional<Gap> FeatureDetector::getGapAt(int x) const {
     return std::move(gap);
 }
 
-// TODO find the far gap sooner, right now it has to be visible in full before it's identified
 std::optional<Gap> FeatureDetector::findFirstGapAheadOf(int x) const {
     assert(m_display.boundariesKnown());
-    const uchar *row = m_thresholdedMap.ptr<uchar>(m_lowSweepY);
+    const uchar *row = m_thresholdedWorld.ptr<uchar>(m_lowSweepY);
     int rightBoundary = m_display.getRightBoundary();
     for (int searchX = x; searchX < rightBoundary; searchX += SEARCH_WINDOW_SIZE) {
         // Check the SEARCH_WINDOW_SIZE pixels ahead if we have a white block.
@@ -145,9 +203,39 @@ std::optional<Position> FeatureDetector::findBird() const {
         int posY = dM01 / dArea;
         Position pos = m_display.pixelToPosition(cv::Point(posX, posY));
         pos.x.val += 0.01;
+        pos.y.val -= 0.01;
 
         return pos;
     }
 
     return {};
+}
+
+void openClose(const cv::Mat& imgHsvIn, cv::Mat& imgOut, int lowH, int highH, int lowS, int highS, int lowV, int highV) {
+    cv::inRange(imgHsvIn, cv::Scalar(lowH, lowS, lowV), cv::Scalar(highH, highS, highV), imgOut); //Threshold the image
+
+    //morphological opening (removes small objects from the foreground)
+    cv::erode(imgOut, imgOut, getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(MORPHOLOGICAL_OPENING_THRESHOLD,
+                                                                                MORPHOLOGICAL_OPENING_THRESHOLD)));
+    cv::dilate(imgOut, imgOut, getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(MORPHOLOGICAL_OPENING_THRESHOLD,
+                                                                                 MORPHOLOGICAL_OPENING_THRESHOLD)));
+
+    //morphological closing (removes small holes from the foreground)
+    cv::dilate(imgOut, imgOut, getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(MORPHOLOGICAL_CLOSING_THRESHOLD,
+                                                                                 MORPHOLOGICAL_CLOSING_THRESHOLD)));
+    cv::erode(imgOut, imgOut, getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(MORPHOLOGICAL_CLOSING_THRESHOLD,
+                                                                                MORPHOLOGICAL_CLOSING_THRESHOLD)));
+}
+
+void FeatureDetector::process(const cv::Mat& frame) {
+    static cv::Mat imgHSV;
+
+    cv::cvtColor(frame, imgHSV, cv::COLOR_BGR2HSV); //Convert the captured frame from BGR to HSV
+
+    openClose(imgHSV, m_thresholdedBird, BIRD_LOW_H, BIRD_HIGH_H, BIRD_LOW_S, BIRD_HIGH_S, BIRD_LOW_V, BIRD_HIGH_V);
+    openClose(imgHSV, m_thresholdedWorld, PIPES_LOW_H, PIPES_HIGH_H, PIPES_LOW_S, PIPES_HIGH_S, PIPES_LOW_V, PIPES_HIGH_V);
+
+#ifdef CALIBRATING_DETECTOR
+    m_imgCombined = thresholdedWorld + thresholdedBird;
+#endif
 }

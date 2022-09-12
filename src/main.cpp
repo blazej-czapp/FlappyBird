@@ -30,16 +30,23 @@ int main(int argc, char** argv) {
 
     RAIICloser closer([X11display](){ XCloseDisplay(X11display);});
     ScreenCapture screen(X11display);
-    VideoFeed display(screen);
     SimulatedArm arm(997, 1545, X11display);
+
+    VideoFeed display(screen);
+
+    // VideoFeed display(recording);
+    // recording.load(display);
 
     // WebCam camera;
     // VideoFeed display(camera);
-    // VideoFeed display(recording);
-    // recording.load(display);
+
     // PhysicalArm arm(true);
     Driver driver{arm, display};
     bool humanDriving = true;
+
+    cv::Mat thresholdedBird;
+    cv::Mat thresholdedWorld;
+    FeatureDetector detector{display};
 
     try {
         bool recordFeed = false; // TODO use Recording state
@@ -48,64 +55,78 @@ int main(int argc, char** argv) {
         // time at start of playback
         TimePoint currentFrameStart{};
 
-        cv::Mat thresholdedBird;
-        cv::Mat thresholdedWorld;
-//        auto prevT = TimePoint().time_since_epoch().count(); // for calibration
+        auto prevT = TimePoint().time_since_epoch().count(); // for calibration
         while (true) {
-            if (recordFeed) {
-                recording.record(display.getCurrentFrame().clone());
-            }
-
-            TimePoint captureStart = toTime(std::chrono::system_clock::now());
-            display.captureFrame();
-            TimePoint captureEnd = toTime(std::chrono::system_clock::now());
-
-            display.threshold(thresholdedBird, thresholdedWorld);
-
             if (!display.boundariesKnown()) {
                 cv::waitKey(1);
                 display.show();
                 continue;
             }
 
-            FeatureDetector detector{thresholdedWorld, thresholdedBird, display};
+            TimePoint frameStart = toTime(std::chrono::system_clock::now());
 
-//            for calibrating motion constants
-//            std::optional<Position> birdPos = detector.findBird();
-//            if (birdPos && recording.getState() == Recording::PLAYBACK) {
-//                auto t = TimePoint(recording.m_frames[recording.m_currentPlaybackFrame].first).time_since_epoch().count();
-//                if (t != prevT) {
-//                    std::cout << "actual y at time " << t << ": " << birdPos->y.val << std::endl;
-//                    prevT = t;
-//                }
-//                if (t == 384) {
-//                    driver.predictJump(recording.m_frames, recording.m_currentPlaybackFrame, detector);
-//                    break;
-//                }
-//            }
+            TimePoint captureStart = toTime(std::chrono::system_clock::now());
+            display.captureFrame();
+            TimePoint captureEnd = toTime(std::chrono::system_clock::now());
 
-            std::optional<Position> birdPos = detector.findBird();
-            std::pair<std::optional<Gap>, std::optional<Gap>> gaps;
-            if (birdPos) {
-                // TODO driver will call detector again, so the results might differ or at least delay the whole thing - pass results to driver?
-                display.circle(birdPos.value(), BIRD_RADIUS, CV_BLUE);
+            std::optional<Position> birdPos;
+            if (recordFeed) {
+                recording.record(display.getCurrentFrame());
+            } else {
+                detector.process(display.getCurrentFrame());
 
-                gaps = detector.findGapsAheadOf(birdPos.value());
-                assert(!gaps.second || gaps.first); // detecting the right but not the left gap would be unexpected
+                // for calibrating motion constants
+                if (recording.getState() == Recording::PLAYBACK) {
+                    std::optional<Position> birdPosCal = detector.findBird();
+                    if (birdPosCal) {
+                        std::pair<std::optional<Gap>, std::optional<Gap>> gaps = detector.findGapsAheadOf(birdPosCal.value());
+                        display.circle(birdPosCal.value(), BIRD_RADIUS, CV_CYAN);
+                        if (gaps.first) {
+                            std::cout << "gap x: " << gaps.first->lowerLeft.x.val << std::endl;
+                        }
+                        auto t = TimePoint(recording.m_frames[recording.m_currentPlaybackFrame].first).time_since_epoch().count();
+                        if (t < prevT) {
+                        // if (t == 1226) {
+                            break;
+                        }
+                        if (t != prevT) {
+                            std::cout << "actual y at time " << t << " " << birdPosCal->y.val << std::endl;
+                            prevT = t;
+                        }
+                        if (t == 49) {
+                            driver.predictJump(recording.m_frames, recording.m_currentPlaybackFrame, detector);
+                            // break;
+                        }
 
-                if (gaps.first) {
-                    markGap(gaps.first.value(), display);
+                    }
                 }
-                if (gaps.second) {
-                    markGap(gaps.second.value(), display);
+
+                if (!recordFeed) {
+                    birdPos = detector.findBird();
+                    std::pair<std::optional<Gap>, std::optional<Gap>> gaps;
+                    if (birdPos) {
+                        if (!recordFeed) {
+                            // don't mark anything during recording, it will confuse the detector working off the recording
+                            display.circle(birdPos.value(), BIRD_RADIUS, CV_BLUE);
+                        }
+
+                        gaps = detector.findGapsAheadOf(birdPos.value());
+                        assert(!gaps.second || gaps.first); // detecting the right but not the left gap would be unexpected
+
+                        if (gaps.first && !recordFeed) {
+                            markGap(gaps.first.value(), display);
+                        }
+                        if (gaps.second && !recordFeed) {
+                            markGap(gaps.second.value(), display);
+                        }
+                    }
+
+                    if (!humanDriving) {
+                        driver.drive(birdPos, gaps, captureStart, captureEnd);
+                    }
                 }
             }
 
-            if (!humanDriving) {
-                driver.drive(birdPos, gaps, captureStart, captureEnd);
-            }
-
-            // driver will mark some objects in the frame so only display the frame once it's done
             display.show();
 
             const char key = cv::waitKey(1);
@@ -117,6 +138,10 @@ int main(int argc, char** argv) {
                 std::cout << "Exiting" << std::endl;
                 break;
             } else if (key == 32 && humanDriving) { // space
+                // if (recording.getState() != Recording::PLAYBACK) {
+                //     recording.startRecording();
+                //     recordFeed = true;
+                // }
                 arm.tap();
             } else if (key == 'a') {
                 if (birdPos) {
@@ -141,6 +166,12 @@ int main(int argc, char** argv) {
             } else if (key == 's') {
                 cv::imwrite("screen" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count()) + ".jpg", display.getCurrentFrame());
                 cv::imwrite("screen" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count()) + ".jpg", thresholdedBird + thresholdedWorld);
+            } else { // any other key or nothing, useful when we set the wait to 0 (wait forever), so we can advance
+                     // frame manually (when playing a recording)
+                TimePoint frameEnd = toTime(std::chrono::system_clock::now());
+                // std::cout << frameEnd.time_since_epoch().count() - frameStart.time_since_epoch().count() << std::endl;
+
+                continue;
             }
         }
     } catch (std::exception& ex) {

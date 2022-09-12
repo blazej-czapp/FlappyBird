@@ -21,13 +21,6 @@ public:
         return m_source.get().postCaptureProcessingTime();
     };
 
-    /**
-     *
-     * @param[in] frame
-     * @param[out] birdPos
-     * @param[out] thresholdedWorld - thresholded, black&white image of just the obstacles
-     */
-    void threshold(cv::Mat &thresholdedBird, cv::Mat &thresholdedWorld);
     void mark(cv::Point loc, cv::Scalar color);
     void circle(Position center, Distance radius, cv::Scalar color);
     void filledCircle(Position center, Distance radius, cv::Scalar color);
@@ -107,5 +100,8 @@ private:
     int m_refBoxLeft; // temp for saving the left edge of the reference unit box (the stats box) while setting boundaries
     int m_unitLength;
     int m_frameHeight;
+
+#ifdef CALIBRATING_DETECTOR
     cv::Mat m_imgCombined;
+#endif
 };

@@ -179,8 +179,6 @@ void Driver::drive(const std::optional<Position>& birdPos, std::pair<std::option
     assert(captureStart < now);
     assert(m_lastTapped <= captureStart); // capture start must be before now
 
-//    std::cout << "detection delay: " << (now - captureEnd).count() << std::endl;
-
     Position dummyPos;
     TimePoint captureTime = captureStart + m_disp.postCaptureProcessingTime();
     // predict speed at capture time, apply detected position
@@ -226,7 +224,7 @@ void Driver::predictPosition(const std::vector<std::pair<TimePoint::duration, cv
         const auto timeDelta = recording[i].first - recording[startFrame].first;
         const Motion projected = predictMotion(Motion{birdPos.value(), initialSpeed}, recording[i].first - startTime);
 
-        std::cout << "" << TimePoint(recording[i].first).time_since_epoch().count() << " " << projected.position.y.val << std::endl;
+        std::cout << "predicted y at time " << TimePoint(recording[i].first).time_since_epoch().count() << " " << projected.position.y.val << std::endl;
     }
 }
 

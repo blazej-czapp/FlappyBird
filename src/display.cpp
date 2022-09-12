@@ -8,34 +8,6 @@
 
 const std::string VideoFeed::FEED_NAME = "Original";
 
-// HSV filters to capture the bird and the pipes
-// int BIRD_LOW_H = 121;
-// int BIRD_HIGH_H = 180;
-int BIRD_LOW_H = 0;
-int BIRD_HIGH_H = 4;
-
-int BIRD_LOW_S = 165;
-int BIRD_HIGH_S = 255;
-
-int BIRD_LOW_V = 110;
-int BIRD_HIGH_V = 255;
-
-// int PIPES_LOW_H = 7;
-// int PIPES_HIGH_H = 88;
-int PIPES_LOW_H = 31;
-int PIPES_HIGH_H = 50;
-
-// int PIPES_LOW_S = 9;
-// int PIPES_HIGH_S = 255;
-int PIPES_LOW_S = 47;
-int PIPES_HIGH_S = 255;
-
-int PIPES_LOW_V = 43;
-int PIPES_HIGH_V = 255;
-
-int MORPHOLOGICAL_OPENING_THRESHOLD = 3;
-int MORPHOLOGICAL_CLOSING_THRESHOLD = 20; // high values slow things down
-
 // for [de]serialisation
 const static std::string BOUNDARIES_FILE = "boundaries.txt";
 const static std::string BOTTOM_LEFT_KEY = "bottom_left";
@@ -53,52 +25,9 @@ VideoFeed::VideoFeed(VideoSource& source) : m_source(source) {
     cv::namedWindow(FEED_NAME);
     cv::setMouseCallback(FEED_NAME, mouseCallback, this);
     loadBoundaries();
-    cv::namedWindow("Pipe Control", cv::WINDOW_AUTOSIZE); //create a window called "Control"
-
-    // //Create trackbars in "Control" window
-    cv::createTrackbar("LowH", "Pipe Control", &PIPES_LOW_H, 180); //Hue (0 - 180)
-    cv::createTrackbar("HighH", "Pipe Control", &PIPES_HIGH_H, 180);
-
-    cv::createTrackbar("LowS", "Pipe Control", &PIPES_LOW_S, 255); //Saturation (0 - 255)
-    cv::createTrackbar("HighS", "Pipe Control", &PIPES_HIGH_S, 255);
-
-    cv::createTrackbar("LowV", "Pipe Control", &PIPES_LOW_V, 255); //Value (0 - 255)
-    cv::createTrackbar("HighV", "Pipe Control", &PIPES_HIGH_V, 255);
-
-    cv::namedWindow("Driver Control", cv::WINDOW_AUTOSIZE); //create a window called "Control"
-
-    // //Create trackbars in "Control" window
-    cv::createTrackbar("LowH", "Driver Control", &BIRD_LOW_H, 180); //Hue (0 - 180)
-    cv::createTrackbar("HighH", "Driver Control", &BIRD_HIGH_H, 180);
-
-    cv::createTrackbar("LowS", "Driver Control", &BIRD_LOW_S, 255); //Saturation (0 - 255)
-    cv::createTrackbar("HighS", "Driver Control", &BIRD_HIGH_S, 255);
-
-    cv::createTrackbar("LowV", "Driver Control", &BIRD_LOW_V, 255); //Value (0 - 255)
-    cv::createTrackbar("HighV", "Driver Control", &BIRD_HIGH_V, 255);
-
-    // //Create trackbars in "Control" window
-    cv::createTrackbar("Opening", "Driver Control", &MORPHOLOGICAL_OPENING_THRESHOLD, 40);
-    cv::createTrackbar("Closing", "Driver Control", &MORPHOLOGICAL_CLOSING_THRESHOLD, 80);
 }
 
 VideoFeed::~VideoFeed() {}
-
-void openClose(const cv::Mat& imgHsvIn, cv::Mat& imgOut, int lowH, int highH, int lowS, int highS, int lowV, int highV) {
-    cv::inRange(imgHsvIn, cv::Scalar(lowH, lowS, lowV), cv::Scalar(highH, highS, highV), imgOut); //Threshold the image
-
-    //morphological opening (removes small objects from the foreground)
-    cv::erode(imgOut, imgOut, getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(MORPHOLOGICAL_OPENING_THRESHOLD,
-                                                                                MORPHOLOGICAL_OPENING_THRESHOLD)));
-    cv::dilate(imgOut, imgOut, getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(MORPHOLOGICAL_OPENING_THRESHOLD,
-                                                                                 MORPHOLOGICAL_OPENING_THRESHOLD)));
-
-    //morphological closing (removes small holes from the foreground)
-    cv::dilate(imgOut, imgOut, getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(MORPHOLOGICAL_CLOSING_THRESHOLD,
-                                                                                 MORPHOLOGICAL_CLOSING_THRESHOLD)));
-    cv::erode(imgOut, imgOut, getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(MORPHOLOGICAL_CLOSING_THRESHOLD,
-                                                                                MORPHOLOGICAL_CLOSING_THRESHOLD)));
-}
 
 void VideoFeed::captureFrame() {
     m_currentFrame = m_source.get().captureFrame().clone();
@@ -106,18 +35,9 @@ void VideoFeed::captureFrame() {
 
 void VideoFeed::show() const {
     cv::imshow(FEED_NAME, m_currentFrame);
+#ifdef CALIBRATING_DETECTOR
     cv::imshow("Combined", m_imgCombined);
-}
-
-void VideoFeed::threshold(cv::Mat& thresholdedBird, cv::Mat& thresholdedWorld) {
-    static cv::Mat imgHSV;
-
-    cv::cvtColor(m_currentFrame, imgHSV, cv::COLOR_BGR2HSV); //Convert the captured frame from BGR to HSV
-
-    openClose(imgHSV, thresholdedBird, BIRD_LOW_H, BIRD_HIGH_H, BIRD_LOW_S, BIRD_HIGH_S, BIRD_LOW_V, BIRD_HIGH_V);
-    openClose(imgHSV, thresholdedWorld, PIPES_LOW_H, PIPES_HIGH_H, PIPES_LOW_S, PIPES_HIGH_S, PIPES_LOW_V, PIPES_HIGH_V);
-
-    m_imgCombined = thresholdedWorld + thresholdedBird;
+#endif
 }
 
 void VideoFeed::mark(cv::Point loc, cv::Scalar color) {

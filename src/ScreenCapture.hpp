@@ -21,7 +21,6 @@ public:
         // remember to set viewport boundaries into that viewport (like we would with a webcam, see display.cpp)
         const int width = 1400 - 582;
         const int height = 1714 - 794;
-
         XImage* img = XGetImage(m_x11display, root, 582, 794 , width, height, AllPlanes, ZPixmap);
         const int bitsPerPixel = img->bits_per_pixel;
 

@@ -140,9 +140,8 @@ public:
 
     void record(const cv::Mat& frame) {
         assert(m_state == RECORDING);
-        m_frames.push_back(std::make_pair(
-                toTime(std::chrono::system_clock::now()) - m_currentFrameStart,
-                frame));
+        m_frames.emplace_back(toTime(std::chrono::system_clock::now()) - m_currentFrameStart,
+                              frame.clone());
     }
 
     // Recording captures a frame by advancing the tape if next frame is due
@@ -178,7 +177,7 @@ public:
 
     std::chrono::milliseconds postCaptureProcessingTime() const override {
         using namespace std::literals::chrono_literals;
-        return 1ms; // not measured, shouldn't matter
+        return 0ms;
     }
 
     void reset() {
@@ -188,7 +187,7 @@ public:
         m_currentPlaybackFrame = 0;
     }
 
-private:
+public:
     // time is from the start of the recording
     std::vector<std::pair<TimePoint::duration, cv::Mat>> m_frames;
     TimePoint m_currentFrameStart = NO_FRAME_START;
