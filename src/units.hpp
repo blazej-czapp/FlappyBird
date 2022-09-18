@@ -41,6 +41,10 @@ struct Distance {
         return *this;
     }
 
+    Distance operator-() const {
+        return Distance{-val};
+    }
+
     bool operator<(const Distance& other) const {
         return val < other.val;
     }

@@ -12,13 +12,6 @@
 #include "simulatedArm.hpp"
 #include "constants.hpp"
 
-void markGap(const Gap& gap, VideoFeed& display) {
-    display.mark(display.positionToPixel(gap.lowerLeft), cv::Scalar(255, 0, 0));
-    display.mark(display.positionToPixel(gap.lowerRight), cv::Scalar(255, 0, 0));
-    display.mark(display.positionToPixel(gap.upperLeft), cv::Scalar(0, 0, 255));
-    display.mark(display.positionToPixel(gap.upperRight), cv::Scalar(0, 0, 255));
-}
-
 int main(int argc, char** argv) {
     Recording recording;
     Display *X11display = XOpenDisplay(nullptr);
@@ -112,13 +105,6 @@ int main(int argc, char** argv) {
 
                         gaps = detector.findGapsAheadOf(birdPos.value());
                         assert(!gaps.second || gaps.first); // detecting the right but not the left gap would be unexpected
-
-                        if (gaps.first && !recordFeed) {
-                            markGap(gaps.first.value(), display);
-                        }
-                        if (gaps.second && !recordFeed) {
-                            markGap(gaps.second.value(), display);
-                        }
                     }
 
                     if (!humanDriving) {

@@ -24,10 +24,14 @@ static constexpr Acceleration GRAVITY{{0.000004820}}; // position grows down, gr
 
 static constexpr std::chrono::milliseconds BIRD_TAP_DELAY = 25ms;
 
-// "grow" pipes by this much in all directions for collision detection (should yield safer paths but may cause no
-// path to be found if too large)
-// TODO shouldn't matter anymore - we find the best clearance path now
-static constexpr Distance SAFETY_BUFFER{0.00};
+// "grow" pipes by this much in all directions for collision detection; the idea is to discard candidate
+// paths during search that pass too close to the obstacles, saving time evaluating them further (the
+// expectation being that we'll find a path that doesn't need to cut it this fine)
+// it's a remnant of early experiments when we accepted the first path that didn't crash, not the largest
+// clearance one,  I've got a feeling this makes no real difference to performance
+static constexpr Distance SAFETY_BUFFER{0.000};
+
+static constexpr Distance GROUND_SAFETY_BUFFER{0.015};
 
 static constexpr Distance BIRD_RADIUS{0.062f};
 

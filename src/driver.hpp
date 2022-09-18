@@ -16,7 +16,7 @@ class Driver {
 
 public:
     Driver(Arm& arm, VideoFeed& cam);
-    void drive(const std::optional<Position>& birdPos, std::pair<std::optional<Gap>, std::optional<Gap>> gaps,
+    void drive(std::optional<Position> birdPos, std::pair<std::optional<Gap>, std::optional<Gap>> gaps,
                TimePoint captureStart, TimePoint captureEnd);
     void takeOver(Position birdPos);
 
@@ -34,27 +34,28 @@ public:
                          Speed initialSpeed) const;
 
 private:
-
-    Coordinate m_groundLevel;
-
-    Arm& m_arm;
-    VideoFeed& m_disp;
-    TimePoint m_lastTapped;
-    Position m_birdPosAtLastTap; // TODO use for debug to compare predicted and actual
-
-    Distance minClearance(Position pos, const std::pair<std::optional<Gap>, std::optional<Gap>>& gaps) const;
-
-    // should these be free functions? we'd need to make the constants public or pass them directly
-    static Speed projectVerticalSpeed(Speed startingSpeed, TimePoint::duration deltaT);
-    static Motion predictMotion(Motion motionNow, TimePoint::duration deltaT);
-    static Distance pipeClearance(const Gap& gap, const Position& pos);
-
     enum class Action {
         TAP,
         NO_TAP,
         ANY,
         NONE
     };
+
+    Coordinate m_groundLevel;
+
+    Arm& m_arm;
+    VideoFeed& m_disp;
+    TimePoint m_lastTapped;
+    Action m_lastAction;
+
+    std::optional<Distance> minClearance(Position pos, const std::pair<std::optional<Gap>,
+                                         std::optional<Gap>>& gaps) const;
+
+    // should these be free functions? we'd need to make the constants public or pass them directly
+    static Speed projectVerticalSpeed(Speed startingSpeed, TimePoint::duration deltaT);
+    static Motion predictMotion(Motion motionNow, TimePoint::duration deltaT);
+    // no value if crashed
+    static std::optional<Distance> pipeClearance(const Gap& gap, const Position& pos);
 
     Action bestAction(Motion motion,
                       TimePoint::duration sinceLastTap,

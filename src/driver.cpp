@@ -7,6 +7,13 @@
 #include <deque>
 #include <chrono>
 
+void markGap(const Gap& gap, VideoFeed& display) {
+    display.mark(display.positionToPixel(gap.lowerLeft), cv::Scalar(255, 0, 0));
+    display.mark(display.positionToPixel(gap.lowerRight), cv::Scalar(255, 0, 0));
+    display.mark(display.positionToPixel(gap.upperLeft), cv::Scalar(0, 0, 255));
+    display.mark(display.positionToPixel(gap.upperRight), cv::Scalar(0, 0, 255));
+}
+
 Speed Driver::projectVerticalSpeed(Speed startingSpeed, TimePoint::duration deltaT) {
     return startingSpeed + GRAVITY * deltaT;
 }
@@ -43,7 +50,7 @@ Motion Driver::predictMotion(Motion startingMotion, TimePoint::duration deltaT) 
 }
 
 Driver::Driver(Arm& arm, VideoFeed& cam) : m_arm{arm}, m_disp{cam},
-        m_groundLevel(cam.pixelYToPosition(cam.getGroundLevel())) {
+        m_groundLevel(cam.pixelYToPosition(cam.getGroundLevel())), m_lastAction{Action::ANY} {
     // simplifies calculations (bestBestClearance()) if we can compute events between time quanta independently
     //TODO should throw
     assert(SIMULATION_TIME_QUANTUM > m_arm.tapDelay());
@@ -52,48 +59,63 @@ Driver::Driver(Arm& arm, VideoFeed& cam) : m_arm{arm}, m_disp{cam},
 void Driver::takeOver(Position birdPos) {
     // tap immediately so we know when the last tap happened
     m_arm.tap();
-    m_lastTapped = toTime(std::chrono::system_clock::now()) + m_arm.tapDelay() + BIRD_TAP_DELAY;
-    m_birdPosAtLastTap = birdPos;
+    m_lastTapped = toTime(std::chrono::system_clock::now()) + m_arm.tapDelay() + BIRD_TAP_DELAY; // + BIRD_TAP_DELAY
 }
 
-Distance Driver::pipeClearance(const Gap& gap, const Position& pos) {
+std::optional<Distance> Driver::pipeClearance(const Gap& gap, const Position& pos) {
+    // inside the gap?
+    if (pos.x > gap.lowerLeft.x && pos.x < gap.lowerRight.x) {
+        const auto gapAbove = (pos.y - BIRD_RADIUS) - gap.upperLeft.y;
+        const auto gapBelow = gap.lowerLeft.y - (pos.y + BIRD_RADIUS);
 
-
-    bool crashed = pos.x + BIRD_RADIUS >= (gap.lowerLeft.x - SAFETY_BUFFER)
-                   && pos.x - BIRD_RADIUS <= (gap.lowerRight.x + SAFETY_BUFFER)
-                   && (pos.y + BIRD_RADIUS >= (gap.lowerLeft.y - SAFETY_BUFFER)
-                    || pos.y - BIRD_RADIUS <= (gap.upperLeft.y + SAFETY_BUFFER));
-
-    crashed |= (pos - gap.lowerLeft - SAFETY_BUFFER < BIRD_RADIUS)
-                || (pos - gap.lowerRight - SAFETY_BUFFER < BIRD_RADIUS)
-                || (pos - gap.upperLeft - SAFETY_BUFFER < BIRD_RADIUS)
-                || (pos - gap.upperRight - SAFETY_BUFFER < BIRD_RADIUS);
-
-    if (crashed) {
-        return Distance{0};
-    } else {
-        // if inside a gap, check distance to the top and bottom edges
-        if (pos.x >= gap.lowerLeft.x - SAFETY_BUFFER && pos.x <= gap.lowerRight.x + SAFETY_BUFFER) {
-            return std::min(gap.lowerLeft.y - pos.y - BIRD_RADIUS - SAFETY_BUFFER,
-                            pos.y - gap.upperLeft.y - BIRD_RADIUS - SAFETY_BUFFER);
+        if (gapAbove < SAFETY_BUFFER || gapBelow < SAFETY_BUFFER) {
+            return {};
         } else {
-            return std::min(pos - gap.lowerLeft,
-                            std::min(pos - gap.lowerRight,
-                                    std::min(pos - gap.upperLeft, pos - gap.upperRight)));
+            return std::min(gapAbove, gapBelow);
+        }
+    } else {
+        const Distance smallestClearance = std::min(pos - gap.lowerLeft,
+                                                    std::min(pos - gap.lowerRight,
+                                                             std::min(pos - gap.upperLeft,
+                                                                      pos - gap.upperRight)))
+                                            - BIRD_RADIUS;
+
+        if (smallestClearance < SAFETY_BUFFER) {
+            return {};
+        } else {
+            return smallestClearance;
         }
     }
 }
 
-Distance Driver::minClearance(Position pos, const std::pair<std::optional<Gap>, std::optional<Gap>>& gaps) const {
-    if (m_groundLevel < pos.y + BIRD_RADIUS) {
-        return Distance{0}; // don't bother computing best ground clearance, it's never a problem
+std::optional<Distance> Driver::minClearance(Position pos,
+                                             const std::pair<std::optional<Gap>,
+                                             std::optional<Gap>>& gaps) const {
+
+    if (pos.y + BIRD_RADIUS + GROUND_SAFETY_BUFFER > m_groundLevel) {
+        return {};
     }
 
     assert(!gaps.second || gaps.first);
-    if (gaps.second) {
-        return std::min(pipeClearance(gaps.first.value(), pos), pipeClearance(gaps.second.value(), pos));
-    } else if (gaps.first) {
-        return pipeClearance(gaps.first.value(), pos);
+
+    if (gaps.first) {
+        std::optional<Distance> firstGapClearance = pipeClearance(gaps.first.value(), pos);
+        if (firstGapClearance) {
+
+            if (gaps.second) {
+                std::optional<Distance> secondGapClearance = pipeClearance(gaps.second.value(), pos);
+
+                if (secondGapClearance) {
+                    return std::min(firstGapClearance.value(), secondGapClearance.value());
+                } else {
+                    return {};
+                }
+            } else {
+                return firstGapClearance;
+            }
+        } else {
+            return {};
+        }
     } else {
         return Distance{std::numeric_limits<float>::max()};
     }
@@ -110,8 +132,8 @@ Driver::bestActionR(Motion motion,
                     TimePoint::duration sinceLastTap,
                     const std::pair<std::optional<Gap>, std::optional<Gap>>& gaps,
                     Distance nearestMissSoFar) const {
-    Distance currentClearance = minClearance(motion.position, gaps);
-    if (currentClearance == Distance{0}) {
+    const std::optional<Distance> currentClearance = minClearance(motion.position, gaps);
+    if (!currentClearance) {
         // we've crashed into something
         return {Distance{0}, Action::NONE};
     }
@@ -130,18 +152,18 @@ Driver::bestActionR(Motion motion,
         // then, compute motion from the tap until the next time quantum (with the new speed from tap)
         const Motion atNextQuantum = predictMotion(atTap.with(JUMP_SPEED), SIMULATION_TIME_QUANTUM - m_arm.tapDelay() - BIRD_TAP_DELAY);
         bestIfTap = bestActionR(atNextQuantum, SIMULATION_TIME_QUANTUM - m_arm.tapDelay() - BIRD_TAP_DELAY, gaps,
-                                std::min(nearestMissSoFar, currentClearance));
+                                std::min(nearestMissSoFar, currentClearance.value()));
     }
 
     // now try not tapping
     std::pair<Distance, Action> bestIfNoTap = bestActionR(predictMotion(motion, SIMULATION_TIME_QUANTUM), sinceLastTap + SIMULATION_TIME_QUANTUM,
-                                                          gaps, std::min(nearestMissSoFar, currentClearance));
+                                                          gaps, std::min(nearestMissSoFar, currentClearance.value()));
 
     // Whichever action we choose, the best nearest clearance overall is going to be the smallest of:
     //  - currentClearance
     //  - nearestMissSoFar
     //  - nearest clearance of whichever action we choose
-    const Distance smallestIncludingNow = std::min(currentClearance, nearestMissSoFar);
+    const Distance smallestIncludingNow = std::min(currentClearance.value(), nearestMissSoFar);
     if (bestIfTap.first > bestIfNoTap.first) {
         assert(bestIfTap.second != Action::NONE); // distance would be 0 otherwise
         return {std::min(smallestIncludingNow, bestIfTap.first), Action::TAP};
@@ -159,18 +181,11 @@ Driver::bestActionR(Motion motion,
     }
 }
 
-void Driver::drive(const std::optional<Position>& birdPos, std::pair<std::optional<Gap>, std::optional<Gap>> gaps,
+void Driver::drive(std::optional<Position> birdPos, std::pair<std::optional<Gap>, std::optional<Gap>> gaps,
                    TimePoint captureStart, TimePoint captureEnd) {
-    if (!m_disp.boundariesKnown()) {
-        return;
-    }
 
-    if (!birdPos) {
-        return; // not initialised yet
-    }
-
-    if (!gaps.first && !gaps.second) {
-        // presumably at the beginning - maintain altitude?
+    assert(!gaps.second || gaps.first);
+    if (!m_disp.boundariesKnown() || !birdPos || !gaps.first) {
         return;
     }
 
@@ -181,41 +196,56 @@ void Driver::drive(const std::optional<Position>& birdPos, std::pair<std::option
     // We know where the bird is right now, we're only interested in computing the current speed.
     // We know when we last tapped and what the speed was at that point (JUMP_SPEED) so we can compute the new speed and
     // just overwrite the position with the detected one.
-    // TODO store the position at last tap and verify the projected position is close to the detected one
-
-    if (m_lastTapped >= captureStart) {
-        return; // tap still pending
-    }
 
     assert(captureStart < now);
     assert(m_lastTapped <= captureStart); // capture start must be before now
 
-    Position dummyPos;
-    TimePoint captureTime = captureStart + m_disp.postCaptureProcessingTime();
+    const TimePoint captureTime = captureStart + m_disp.postCaptureProcessingTime();
     // predict speed at capture time, apply detected position
-    const Motion captureStartMotion = predictMotion(Motion{dummyPos, JUMP_SPEED}, captureTime - m_lastTapped).with(birdPos.value());
+    const Motion captureStartMotion = predictMotion(Motion{Position{}, JUMP_SPEED}, captureTime - m_lastTapped).with(birdPos.value());
     // correct position by projecting forward by feature detection delay
-    const Motion startingMotion = predictMotion(captureStartMotion, now - captureEnd);
+    const Motion startingMotion = predictMotion(captureStartMotion, now - captureEnd); // captureStart?
 
+    if (m_lastAction == Action::NONE) {
+        m_disp.filledCircle(startingMotion.position, BIRD_RADIUS, CV_CYAN);
+    } else {
+        // this is where we think the bird really is at `now`
+        m_disp.filledCircle(startingMotion.position, BIRD_RADIUS, CV_BLUE);
+    }
 
-    auto best = bestAction(startingMotion, now - m_lastTapped, gaps);
+    if (m_lastTapped >= captureStart) {
+        std::cout << "TAP PENDING\n";
+        return; // tap still pending
+    }
+
+    // similarly to the bird, the pipes would have moved (left) on screen during image processing, so simulate
+    // that before path finding
+    if (gaps.first) {
+        gaps.first->shiftHorizontally(-Distance{HORIZONTAL_SPEED * (now - captureStart)});
+        markGap(gaps.first.value(), m_disp);
+    }
+    if (gaps.second) {
+        gaps.second->shiftHorizontally(-Distance{HORIZONTAL_SPEED * (now - captureStart)});
+        markGap(gaps.second.value(), m_disp);
+    }
+
+    const auto best = bestAction(startingMotion, now - m_lastTapped, gaps);
 
     if (best == Action::TAP) {
         m_arm.tap();
         // arm.tap() starts a new thread which does the tap so let's assume it exits immediately  and so tap delay
         // starts now
+        // TODO keep BIRD_TAP_DELAY here?
         m_lastTapped = toTime(std::chrono::system_clock::now()) + m_arm.tapDelay() + BIRD_TAP_DELAY;
-        m_birdPosAtLastTap = predictMotion(startingMotion, m_arm.tapDelay() + BIRD_TAP_DELAY).position;
     }
 
     static int c = 1;
     if (best == Action::NONE) {
-        m_disp.filledCircle(startingMotion.position, BIRD_RADIUS, CV_CYAN);
         std::cout << "COULDN'T FIND PATH! " << ++c << std::endl;
-    } else {
-        // this is where we think the bird really is at `now`
-        m_disp.filledCircle(startingMotion.position, BIRD_RADIUS, CV_BLUE);
+        m_disp.filledCircle(startingMotion.position, BIRD_RADIUS, CV_CYAN);
     }
+
+    m_lastAction = best;
 }
 
 // predicting from recording to calibrate motion constants
