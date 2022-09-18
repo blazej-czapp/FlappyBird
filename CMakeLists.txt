@@ -4,6 +4,7 @@ project(FlappyBird)
 find_package(X11)
 
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # like running pkg-config --libs opencv, puts all the results (without the -l prefixes) in OPENCV_LIBRARIES
 # pkg_check_modules(OPENCV REQUIRED IMPORTED_TARGET opencv)
