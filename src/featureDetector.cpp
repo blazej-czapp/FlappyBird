@@ -1,6 +1,7 @@
 #include "featureDetector.hpp"
 #include "display.hpp"
 #include "util.hpp"
+#include "constants.hpp"
 
 #include "opencv2/imgproc/imgproc.hpp"
 #include "opencv2/highgui/highgui.hpp"
@@ -175,7 +176,7 @@ std::optional<Gap> FeatureDetector::findFirstGapAheadOf(int x) const {
 }
 
 std::pair<std::optional<Gap>, std::optional<Gap>> FeatureDetector::findGapsAheadOf(Position pos) const {
-    int x = m_display.positionToPixel(pos).x;
+    int x = m_display.positionToPixel(pos).x - m_display.distanceToPixels(BIRD_RADIUS);
     std::optional<Gap> leftGap = findFirstGapAheadOf(x);
     if (leftGap.has_value()) {
         // we may be able to see the next gap as well (or part thereof)
