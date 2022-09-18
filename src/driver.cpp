@@ -218,17 +218,6 @@ void Driver::drive(std::optional<Position> birdPos, std::pair<std::optional<Gap>
         return; // tap still pending
     }
 
-    // similarly to the bird, the pipes would have moved (left) on screen during image processing, so simulate
-    // that before path finding
-    if (gaps.first) {
-        gaps.first->shiftHorizontally(-Distance{HORIZONTAL_SPEED * (now - captureStart)});
-        markGap(gaps.first.value(), m_disp);
-    }
-    if (gaps.second) {
-        gaps.second->shiftHorizontally(-Distance{HORIZONTAL_SPEED * (now - captureStart)});
-        markGap(gaps.second.value(), m_disp);
-    }
-
     const auto best = bestAction(startingMotion, now - m_lastTapped, gaps);
 
     if (best == Action::TAP) {
