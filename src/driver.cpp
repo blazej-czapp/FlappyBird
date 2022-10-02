@@ -59,7 +59,7 @@ Driver::Driver(Arm& arm, VideoFeed& cam) : m_arm{arm}, m_disp{cam},
 void Driver::takeOver(Position birdPos) {
     // tap immediately so we know when the last tap happened
     m_arm.tap();
-    m_lastTapped = toTime(std::chrono::system_clock::now()) + m_arm.tapDelay() + BIRD_TAP_DELAY; // + BIRD_TAP_DELAY
+    m_lastTapped = toTime(std::chrono::system_clock::now()) + m_arm.tapDelay();
 }
 
 std::optional<Distance> Driver::pipeClearance(const Gap& gap, const Position& pos) {
@@ -143,27 +143,30 @@ Driver::bestActionR(Motion motion,
         return {nearestMissSoFar, Action::ANY};
     }
 
+    const Distance smallestIncludingNow = std::min(nearestMissSoFar, currentClearance.value());
+
     std::pair<Distance, Action> bestIfTap{Distance{0}, Action::NONE};
     // depth-first search
     // try tapping if we're past cooldown
     if (sinceLastTap > m_arm.liftDelay()) {
         // project to the point of actual tap
-        const Motion atTap = predictMotion(motion, m_arm.tapDelay() + BIRD_TAP_DELAY);
+        const Motion atTap = predictMotion(motion, m_arm.tapDelay());
         // then, compute motion from the tap until the next time quantum (with the new speed from tap)
-        const Motion atNextQuantum = predictMotion(atTap.with(JUMP_SPEED), SIMULATION_TIME_QUANTUM - m_arm.tapDelay() - BIRD_TAP_DELAY);
-        bestIfTap = bestActionR(atNextQuantum, SIMULATION_TIME_QUANTUM - m_arm.tapDelay() - BIRD_TAP_DELAY, gaps,
-                                std::min(nearestMissSoFar, currentClearance.value()));
+        const Motion atNextQuantum = predictMotion(atTap.with(JUMP_SPEED), SIMULATION_TIME_QUANTUM - m_arm.tapDelay());
+        bestIfTap = bestActionR(atNextQuantum, SIMULATION_TIME_QUANTUM - m_arm.tapDelay(), gaps,
+                                smallestIncludingNow);
     }
 
     // now try not tapping
-    std::pair<Distance, Action> bestIfNoTap = bestActionR(predictMotion(motion, SIMULATION_TIME_QUANTUM), sinceLastTap + SIMULATION_TIME_QUANTUM,
-                                                          gaps, std::min(nearestMissSoFar, currentClearance.value()));
+    std::pair<Distance, Action> bestIfNoTap = bestActionR(predictMotion(motion, SIMULATION_TIME_QUANTUM),
+                                                          sinceLastTap + SIMULATION_TIME_QUANTUM,
+                                                          gaps,
+                                                          smallestIncludingNow);
 
     // Whichever action we choose, the best nearest clearance overall is going to be the smallest of:
     //  - currentClearance
     //  - nearestMissSoFar
     //  - nearest clearance of whichever action we choose
-    const Distance smallestIncludingNow = std::min(currentClearance.value(), nearestMissSoFar);
     if (bestIfTap.first > bestIfNoTap.first) {
         assert(bestIfTap.second != Action::NONE); // distance would be 0 otherwise
         return {std::min(smallestIncludingNow, bestIfTap.first), Action::TAP};
@@ -192,7 +195,7 @@ void Driver::drive(std::optional<Position> birdPos, std::pair<std::optional<Gap>
     // It would be nice to take current time as argument but finding the bird and calculating path takes time (although
     // I haven't measured). For greatest accuracy of the resulting m_lastTapped, let's get our own time from the clock.
     // I guess we could take the clock as argument for testability, but there are no tests anyway :P
-    TimePoint now = toTime(std::chrono::system_clock::now());
+    const TimePoint now = toTime(std::chrono::system_clock::now());
     // We know where the bird is right now, we're only interested in computing the current speed.
     // We know when we last tapped and what the speed was at that point (JUMP_SPEED) so we can compute the new speed and
     // just overwrite the position with the detected one.
@@ -202,9 +205,10 @@ void Driver::drive(std::optional<Position> birdPos, std::pair<std::optional<Gap>
 
     const TimePoint captureTime = captureStart + m_disp.postCaptureProcessingTime();
     // predict speed at capture time, apply detected position
-    const Motion captureStartMotion = predictMotion(Motion{Position{}, JUMP_SPEED}, captureTime - m_lastTapped).with(birdPos.value());
+    Motion captureStartMotion = predictMotion(Motion{Position{}, JUMP_SPEED}, captureTime - m_lastTapped).with(birdPos.value());
     // correct position by projecting forward by feature detection delay
-    const Motion startingMotion = predictMotion(captureStartMotion, now - captureEnd); // captureStart?
+    // could forward it further, to the point we expect to finish computing path, but that takes less than 1ms
+    const Motion startingMotion = predictMotion(captureStartMotion, now - captureTime);
 
     if (m_lastAction == Action::NONE) {
         m_disp.filledCircle(startingMotion.position, BIRD_RADIUS, CV_CYAN);
@@ -214,7 +218,6 @@ void Driver::drive(std::optional<Position> birdPos, std::pair<std::optional<Gap>
     }
 
     if (m_lastTapped >= captureStart) {
-        std::cout << "TAP PENDING\n";
         return; // tap still pending
     }
 
@@ -224,8 +227,7 @@ void Driver::drive(std::optional<Position> birdPos, std::pair<std::optional<Gap>
         m_arm.tap();
         // arm.tap() starts a new thread which does the tap so let's assume it exits immediately  and so tap delay
         // starts now
-        // TODO keep BIRD_TAP_DELAY here?
-        m_lastTapped = toTime(std::chrono::system_clock::now()) + m_arm.tapDelay() + BIRD_TAP_DELAY;
+        m_lastTapped = toTime(std::chrono::system_clock::now()) + m_arm.tapDelay();
     }
 
     static int c = 1;

@@ -19,8 +19,6 @@ static constexpr Speed JUMP_SPEED{{-0.00144329}};
 static constexpr Speed TERMINAL_VELOCITY{{0.002061855}}; // this should be quite accurate
 static constexpr Acceleration GRAVITY{{0.00000474226}}; // position grows down, gravity is positive
 
-static constexpr std::chrono::milliseconds BIRD_TAP_DELAY = 25ms;
-
 // "grow" pipes by this much in all directions for collision detection; the idea is to discard candidate
 // paths during search that pass too close to the obstacles, saving time evaluating them further (the
 // expectation being that we'll find a path that doesn't need to cut it this fine)
@@ -46,7 +44,7 @@ static constexpr std::chrono::milliseconds SCREEN_POST_CAPTURE_PROCESSING_TIME =
 // also - wait this long after issuing a tap() to the arm before lifting
 // going much lower than this causes the arm to be lifted too quickly and the tablet doesn't register the tap
 static constexpr std::chrono::milliseconds PHYSICAL_ARM_TAP_DELAY = 70ms;
-static constexpr std::chrono::milliseconds SIMULATED_ARM_TAP_DELAY = 2ms;
+static constexpr std::chrono::milliseconds SIMULATED_ARM_TAP_DELAY = 30ms;
 
 // wait at least this long before issuing the next tap()
 // could probably be lower but we're getting too many taps right now, so limiting spam
