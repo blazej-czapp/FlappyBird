@@ -37,3 +37,18 @@ public:
 private:
     std::function<void()> m_closer;
 };
+
+class Stopwatch {
+public:
+    Stopwatch(std::string message) : m_message(message), m_start(std::chrono::system_clock::now()) {}
+
+    ~Stopwatch() {
+        auto end = std::chrono::system_clock::now();
+
+        std::cout << m_message << std::chrono::duration_cast<std::chrono::milliseconds>(end - m_start).count() << "ms" << std::endl;
+    }
+
+private:
+    const std::string m_message;
+    std::chrono::time_point<std::chrono::system_clock> m_start;
+};
