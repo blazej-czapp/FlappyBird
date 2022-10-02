@@ -22,8 +22,8 @@ public:
         return m_currentFrame;
     }
 
-    std::chrono::milliseconds postCaptureProcessingTime() const override{
-        return WEBCAM_POST_CAPTURE_PROCESSING_TIME;
+    double capturePoint() const override{
+        return WEBCAM_CAPTURE_POINT;
     }
 
 private:

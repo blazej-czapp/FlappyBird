@@ -203,7 +203,7 @@ void Driver::drive(std::optional<Position> birdPos, std::pair<std::optional<Gap>
     assert(captureStart < now);
     assert(m_lastTapped <= captureStart); // capture start must be before now
 
-    const TimePoint captureTime = captureStart + m_disp.postCaptureProcessingTime();
+    const TimePoint captureTime = std::chrono::time_point_cast<TimePoint::duration, TimePoint::clock>(captureStart + (captureEnd - captureStart) * m_disp.capturePoint());
     // predict speed at capture time, apply detected position
     Motion captureStartMotion = predictMotion(Motion{Position{}, JUMP_SPEED}, captureTime - m_lastTapped).with(birdPos.value());
     // correct position by projecting forward by feature detection delay

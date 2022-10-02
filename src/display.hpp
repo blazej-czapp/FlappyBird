@@ -17,8 +17,8 @@ public:
 
     void captureFrame();
     void show() const;
-    std::chrono::milliseconds postCaptureProcessingTime() const {
-        return m_source.get().postCaptureProcessingTime();
+    double capturePoint() const {
+        return m_source.get().capturePoint();
     };
 
     void mark(cv::Point loc, cv::Scalar color);

@@ -44,7 +44,7 @@ public:
 
         XFlush(m_x11display);
 
-        usleep(std::chrono::duration_cast<std::chrono::microseconds>(tapDelay()).count());
+        usleep(std::chrono::duration_cast<std::chrono::microseconds>(1ms).count());
 
         event.type = ButtonRelease;
         event.xbutton.state = 0x100;

@@ -3,8 +3,7 @@
 class VideoSource {
 public:
     virtual const cv::Mat& captureFrame() = 0;
-
-    // assuming the real frame is captured immediately at captureFrame(), how much time does processing and data
-    // transfer take?
-    virtual std::chrono::milliseconds postCaptureProcessingTime() const = 0;
+    // the point during captureFrame() at which the actual state of the underlying image is captured
+    // (accounting for memory transfer etc.)
+    virtual double capturePoint() const = 0;
 };

@@ -34,8 +34,8 @@ public:
         return m_currentFrame;
     }
 
-    std::chrono::milliseconds postCaptureProcessingTime() const override{
-        return SCREEN_POST_CAPTURE_PROCESSING_TIME;
+    double capturePoint() const override{
+        return CAPTURE_POINT;
     }
 
 private:

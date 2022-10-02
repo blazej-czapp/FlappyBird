@@ -32,11 +32,10 @@ static constexpr Distance BIRD_RADIUS{0.062f};
 
 static constexpr const TimePoint::duration SIMULATION_TIME_QUANTUM{75};
 
-// TODO add pre-capture?
-static constexpr std::chrono::milliseconds WEBCAM_POST_CAPTURE_PROCESSING_TIME = 12ms; // guessed
-// this is how long a call to XGetImage() takes, let's assume the state of the screen is captured immediately
-// and all the time is spent in postprocessing/data transfer
-static constexpr std::chrono::milliseconds SCREEN_POST_CAPTURE_PROCESSING_TIME = 20ms;
+// the point during captureFrame() at which the actual state of the underlying image is captured
+// (accounting for memory transfer etc.)
+static constexpr double CAPTURE_POINT = 0.0;
+static constexpr double WEBCAM_CAPTURE_POINT = 0.1;
 
 // ----------- arm control ------------
 

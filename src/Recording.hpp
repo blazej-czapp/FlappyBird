@@ -175,9 +175,8 @@ public:
         return m_frames[m_currentPlaybackFrame].second;
     }
 
-    std::chrono::milliseconds postCaptureProcessingTime() const override {
-        using namespace std::literals::chrono_literals;
-        return 0ms;
+    double capturePoint() const override {
+        return 0;
     }
 
     void reset() {
