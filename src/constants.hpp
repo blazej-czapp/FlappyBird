@@ -11,16 +11,13 @@ using namespace std::literals::chrono_literals; // propagate when including this
  * Unit of length is the width of the score box (the one that shows when you crash), including the border
  */
 
-// it takes approx 1.632s to cover the unit distance, speed is per millisecond
-// static constexpr Speed HORIZONTAL_SPEED{{1.f/1632}};
-
-// measured with a single on-screen recording
-static constexpr Speed HORIZONTAL_SPEED{{0.0006338596491228071}};
+// motion constants obtained from disassembling the game apk
+static constexpr Speed HORIZONTAL_SPEED{{0.0006082}};
 
 // tap just sets a new vertical speed
-static constexpr Speed JUMP_SPEED{{-0.001450000}};
-static constexpr Speed TERMINAL_VELOCITY{{0.002140000}}; // this should be quite accurate
-static constexpr Acceleration GRAVITY{{0.000004820}}; // position grows down, gravity is positive
+static constexpr Speed JUMP_SPEED{{-0.00144329}};
+static constexpr Speed TERMINAL_VELOCITY{{0.002061855}}; // this should be quite accurate
+static constexpr Acceleration GRAVITY{{0.00000474226}}; // position grows down, gravity is positive
 
 static constexpr std::chrono::milliseconds BIRD_TAP_DELAY = 25ms;
 
