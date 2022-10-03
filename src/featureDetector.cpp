@@ -79,10 +79,20 @@ FeatureDetector::FeatureDetector(VideoFeed &disp) :
 #endif // CALIBRATING_DETECTOR
 }
 
+// keep looking up this many pixels after finding what we're looking for to bridge gaps
+// within pipes (especially the vertical black segments around the crown of a pipe)
+static const int CONFIDENCE_BUFFER = 20;
 int FeatureDetector::lookUp(int x, int y, int lookFor) const {
+    int confidence = 0;
     for (int row = y; row > 0; --row) {
         if (m_thresholdedWorld.ptr<uchar>(row)[x] == lookFor) {
-            return row;
+            if (confidence == CONFIDENCE_BUFFER) {
+                return row + confidence;
+            } else {
+                ++confidence;
+            }
+        } else {
+            confidence = 0;
         }
     }
 
@@ -104,7 +114,8 @@ int FeatureDetector::lookLeft(int x, int y, int lookFor) const {
 std::optional<Gap> FeatureDetector::getGapAt(int x) const {
     WARN_UNLESS(m_thresholdedWorld.ptr<uchar>(m_lowSweepY)[x] == WHITE, "looking for a gap at a non-white pixel");
     const int gapY = lookUp(x, m_lowSweepY, BLACK); // find the bottom of the gap above
-    const int gapLeftX = lookLeft(x, m_lowSweepY, BLACK);
+    // look a little below the bottom of the gap to miss the notch around the crown
+    const int gapLeftX = lookLeft(x, gapY + 4, BLACK);
 
     if (gapY == -1 || gapLeftX == -1) {
         return {};
@@ -166,7 +177,7 @@ std::optional<Gap> FeatureDetector::findFirstGapAheadOf(int x) const {
             }
         }
 
-        if (maxWhiteCount < static_cast<float>(SEARCH_WINDOW_SIZE) / 8) {
+        if (maxWhiteCount < static_cast<float>(SEARCH_WINDOW_SIZE) / 4) {
             continue;
         }
 
@@ -202,8 +213,10 @@ std::optional<Position> FeatureDetector::findBird() const {
         //calculate the m_position of the ball
         int posX = dM10 / dArea;
         int posY = dM01 / dArea;
-        Position pos = m_display.pixelToPosition(cv::Point(posX, posY));
-        pos.x.val += 0.01;
+        // Position pos = m_display.pixelToPosition(cv::Point(posX, posY));
+        // TODO x position is constant, but we should set it manually when defining
+        //      viewport, not hardcoding
+        Position pos{{0.435f}, m_display.pixelYToPosition(posY)};
         pos.y.val -= 0.01;
 
         return pos;
@@ -215,28 +228,43 @@ std::optional<Position> FeatureDetector::findBird() const {
 void openClose(const cv::Mat& imgHsvIn, cv::Mat& imgOut, int lowH, int highH, int lowS, int highS, int lowV, int highV) {
     cv::inRange(imgHsvIn, cv::Scalar(lowH, lowS, lowV), cv::Scalar(highH, highS, highV), imgOut); //Threshold the image
 
+    // this stuff is nice, but it's slow - we can get good results with some manual
+    // ray casting (at least with screen grab, will see how it goes with webcam)
     //morphological opening (removes small objects from the foreground)
-    cv::erode(imgOut, imgOut, getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(MORPHOLOGICAL_OPENING_THRESHOLD,
-                                                                                MORPHOLOGICAL_OPENING_THRESHOLD)));
-    cv::dilate(imgOut, imgOut, getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(MORPHOLOGICAL_OPENING_THRESHOLD,
-                                                                                 MORPHOLOGICAL_OPENING_THRESHOLD)));
+    // cv::erode(imgOut, imgOut, getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(MORPHOLOGICAL_OPENING_THRESHOLD,
+    //                                                                             MORPHOLOGICAL_OPENING_THRESHOLD)));
+    // cv::dilate(imgOut, imgOut, getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(MORPHOLOGICAL_OPENING_THRESHOLD,
+    //                                                                              MORPHOLOGICAL_OPENING_THRESHOLD)));
 
     //morphological closing (removes small holes from the foreground)
-    cv::dilate(imgOut, imgOut, getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(MORPHOLOGICAL_CLOSING_THRESHOLD,
-                                                                                 MORPHOLOGICAL_CLOSING_THRESHOLD)));
-    cv::erode(imgOut, imgOut, getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(MORPHOLOGICAL_CLOSING_THRESHOLD,
-                                                                                MORPHOLOGICAL_CLOSING_THRESHOLD)));
+    // cv::dilate(imgOut, imgOut, getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(MORPHOLOGICAL_CLOSING_THRESHOLD,
+    //                                                                              MORPHOLOGICAL_CLOSING_THRESHOLD)));
+    // cv::erode(imgOut, imgOut, getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(MORPHOLOGICAL_CLOSING_THRESHOLD,
+    //                                                                             MORPHOLOGICAL_CLOSING_THRESHOLD)));
 }
 
+static cv::Mat imgHSV;
 void FeatureDetector::process(const cv::Mat& frame) {
-    static cv::Mat imgHSV;
 
     cv::cvtColor(frame, imgHSV, cv::COLOR_BGR2HSV); //Convert the captured frame from BGR to HSV
 
-    openClose(imgHSV, m_thresholdedBird, BIRD_LOW_H, BIRD_HIGH_H, BIRD_LOW_S, BIRD_HIGH_S, BIRD_LOW_V, BIRD_HIGH_V);
+#ifdef CALIBRATING_DETECTOR
+    // process the entire frame so that we can add it to m_imgCombined
+    const cv::Rect birdColumn(0, 0, imgHSV.cols, imgHSV.rows);
+#else
+    // in 'production' we only need to process the column we know the bird occupies
+    const cv::Rect birdColumn(imgHSV.cols*0.2, 0, imgHSV.cols*0.4, imgHSV.rows);
+#endif
+
+    // Crop the full image to that image contained by the rectangle birdColumn
+    // Note that this doesn't copy the data
+    cv::Mat croppedImage = imgHSV(birdColumn);
+
+    openClose(croppedImage, m_thresholdedBird, BIRD_LOW_H, BIRD_HIGH_H, BIRD_LOW_S, BIRD_HIGH_S, BIRD_LOW_V, BIRD_HIGH_V);
     openClose(imgHSV, m_thresholdedWorld, PIPES_LOW_H, PIPES_HIGH_H, PIPES_LOW_S, PIPES_HIGH_S, PIPES_LOW_V, PIPES_HIGH_V);
 
 #ifdef CALIBRATING_DETECTOR
-    m_imgCombined = thresholdedWorld + thresholdedBird;
+    m_imgCombined = m_thresholdedWorld + m_thresholdedBird;
+    cv::imshow("Combined", m_imgCombined);
 #endif
 }

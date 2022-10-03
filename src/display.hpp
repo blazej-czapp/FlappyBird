@@ -100,8 +100,4 @@ private:
     int m_refBoxLeft; // temp for saving the left edge of the reference unit box (the stats box) while setting boundaries
     int m_unitLength;
     int m_frameHeight;
-
-#ifdef CALIBRATING_DETECTOR
-    cv::Mat m_imgCombined;
-#endif
 };

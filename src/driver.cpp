@@ -217,6 +217,11 @@ void Driver::drive(std::optional<Position> birdPos, std::pair<std::optional<Gap>
         m_disp.filledCircle(startingMotion.position, BIRD_RADIUS, CV_BLUE);
     }
 
+    markGap(gaps.first.value(), m_disp);
+    if (gaps.second) {
+        markGap(gaps.second.value(), m_disp);
+    }
+
     if (m_lastTapped >= captureStart) {
         return; // tap still pending
     }
@@ -232,7 +237,6 @@ void Driver::drive(std::optional<Position> birdPos, std::pair<std::optional<Gap>
 
     static int c = 1;
     if (best == Action::NONE) {
-        std::cout << "COULDN'T FIND PATH! " << ++c << std::endl;
         m_disp.filledCircle(startingMotion.position, BIRD_RADIUS, CV_CYAN);
     }
 

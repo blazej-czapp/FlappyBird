@@ -35,9 +35,6 @@ void VideoFeed::captureFrame() {
 
 void VideoFeed::show() const {
     cv::imshow(FEED_NAME, m_currentFrame);
-#ifdef CALIBRATING_DETECTOR
-    cv::imshow("Combined", m_imgCombined);
-#endif
 }
 
 void VideoFeed::mark(cv::Point loc, cv::Scalar color) {
