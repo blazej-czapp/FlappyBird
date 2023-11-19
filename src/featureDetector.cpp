@@ -216,7 +216,7 @@ std::optional<Position> FeatureDetector::findBird() const {
         // Position pos = m_display.pixelToPosition(cv::Point(posX, posY));
         // TODO x position is constant, but we should set it manually when defining
         //      viewport, not hardcoding
-        Position pos{{0.435f}, m_display.pixelYToPosition(posY)};
+        Position pos{BIRD_X_COORDINATE, m_display.pixelYToPosition(posY)};
         pos.y.val -= 0.01;
 
         return pos;

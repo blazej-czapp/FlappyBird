@@ -13,6 +13,7 @@ class ScreenCapture : public VideoSource {
 public:
     ScreenCapture(Display* const x11display) : m_x11display(x11display) {}
     const cv::Mat& captureFrame() override {
+        // this whole function takes around 5ms, most of it in XGetImage
 
         Window root = DefaultRootWindow(m_x11display);
 

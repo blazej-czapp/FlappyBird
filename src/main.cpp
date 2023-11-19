@@ -35,7 +35,7 @@ int main(int argc, char** argv) {
 
     // PhysicalArm arm(true);
     Driver driver{arm, display};
-    bool humanDriving = true;
+    bool humanDriving = false;
 
     cv::Mat thresholdedBird;
     cv::Mat thresholdedWorld;
@@ -59,7 +59,7 @@ int main(int argc, char** argv) {
             TimePoint frameStart = toTime(std::chrono::system_clock::now());
 
             TimePoint captureStart = toTime(std::chrono::system_clock::now());
-            display.captureFrame();
+            display.captureFrame(); // 2-6ms on X11 (emulator)
             TimePoint captureEnd = toTime(std::chrono::system_clock::now());
 
             std::optional<Position> birdPos;
@@ -72,12 +72,15 @@ int main(int argc, char** argv) {
                 if (recording.getState() == Recording::PLAYBACK) {
                     std::optional<Position> birdPosCal = detector.findBird();
                     if (birdPosCal) {
-                        std::pair<std::optional<Gap>, std::optional<Gap>> gaps = detector.findGapsAheadOf(birdPosCal.value());
+                        std::pair<std::optional<Gap>, std::optional<Gap>> gaps = detector.findGapsAheadOf(
+                            birdPosCal.value());
                         display.circle(birdPosCal.value(), BIRD_RADIUS, CV_CYAN);
                         if (gaps.first) {
                             std::cout << "gap x: " << gaps.first->lowerLeft.x.val << std::endl;
                         }
-                        auto t = TimePoint(recording.m_frames[recording.m_currentPlaybackFrame].first).time_since_epoch().count();
+                        auto t = TimePoint(recording.m_frames[recording.m_currentPlaybackFrame].first)
+                                     .time_since_epoch()
+                                     .count();
                         if (t < prevT) {
                         // if (t == 1226) {
                             break;
@@ -87,7 +90,8 @@ int main(int argc, char** argv) {
                             prevT = t;
                         }
                         if (t == 49) {
-                            driver.predictJump(recording.m_frames, recording.m_currentPlaybackFrame, detector);
+                            driver.predictJump(recording.m_frames, recording.m_currentPlaybackFrame,
+                                               detector);
                             // break;
                         }
 
@@ -100,7 +104,8 @@ int main(int argc, char** argv) {
                     if (birdPos) {
                         if (!recordFeed) {
                             // don't mark anything during recording, it will confuse the detector working off the recording
-                            display.circle(birdPos.value(), BIRD_RADIUS, CV_BLUE);
+                            display.circle(Position{birdPos.value().x, Coordinate{birdPos.value().y.val}},
+                                           BIRD_RADIUS, CV_BLUE);
                         }
 
                         gaps = detector.findGapsAheadOf(birdPos.value());
