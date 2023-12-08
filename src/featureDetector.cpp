@@ -11,8 +11,8 @@
 
 static constexpr Distance PIPE_SPACING{0.45}; // rough distance between adjacent pipe edges
 constexpr int SEARCH_WINDOW_SIZE = 40;
-constexpr Distance PIPE_WIDTH{0.254f};
-constexpr Distance GAP_HEIGHT{0.490f};
+constexpr Distance PIPE_WIDTH{0.251f};
+constexpr Distance GAP_HEIGHT{0.487f};
 constexpr int WHITE = 255;
 constexpr int BLACK = 0;
 
@@ -22,11 +22,20 @@ constexpr int BLACK = 0;
 int BIRD_LOW_H = 0;
 int BIRD_HIGH_H = 4;
 
-int BIRD_LOW_S = 165;
+int BIRD_LOW_S = 210;
 int BIRD_HIGH_S = 255;
 
 int BIRD_LOW_V = 110;
 int BIRD_HIGH_V = 255;
+
+int BEAK_LOW_H = 15;
+int BEAK_HIGH_H = 30;
+
+int BEAK_LOW_S = 200;
+int BEAK_HIGH_S = 255;
+
+int BEAK_LOW_V = 90;
+int BEAK_HIGH_V = 255;
 
 // int PIPES_LOW_H = 7;
 // int PIPES_HIGH_H = 88;
@@ -42,13 +51,13 @@ int PIPES_LOW_V = 43;
 int PIPES_HIGH_V = 255;
 
 int MORPHOLOGICAL_OPENING_THRESHOLD = 3;
-int MORPHOLOGICAL_CLOSING_THRESHOLD = 20; // high values slow things down
+int MORPHOLOGICAL_CLOSING_THRESHOLD = 13; // 40 // high values slow things down
 
 FeatureDetector::FeatureDetector(VideoFeed &disp) :
         m_display{disp}, m_lowSweepY{disp.getGroundLevel() - 10},
         m_pipeWidth(disp.distanceToPixels(PIPE_WIDTH)),
         m_gapHeight(disp.distanceToPixels(GAP_HEIGHT)) {
-    #ifdef CALIBRATING_DETECTOR
+#ifdef CALIBRATING_DETECTOR
     cv::namedWindow("Pipe Control", cv::WINDOW_AUTOSIZE); //create a window called "Control"
 
     // //Create trackbars in "Control" window
@@ -61,21 +70,30 @@ FeatureDetector::FeatureDetector(VideoFeed &disp) :
     cv::createTrackbar("LowV", "Pipe Control", &PIPES_LOW_V, 255); //Value (0 - 255)
     cv::createTrackbar("HighV", "Pipe Control", &PIPES_HIGH_V, 255);
 
-    cv::namedWindow("Driver Control", cv::WINDOW_AUTOSIZE); //create a window called "Control"
+    cv::namedWindow("Bird Control", cv::WINDOW_AUTOSIZE); // create a window called "Control"
 
     //Create trackbars in "Control" window
-    cv::createTrackbar("LowH", "Driver Control", &BIRD_LOW_H, 180); //Hue (0 - 180)
-    cv::createTrackbar("HighH", "Driver Control", &BIRD_HIGH_H, 180);
+    cv::createTrackbar("LowH (bird)", "Bird Control", &BIRD_LOW_H, 180); // Hue (0 - 180)
+    cv::createTrackbar("HighH (bird)", "Bird Control", &BIRD_HIGH_H, 180);
 
-    cv::createTrackbar("LowS", "Driver Control", &BIRD_LOW_S, 255); //Saturation (0 - 255)
-    cv::createTrackbar("HighS", "Driver Control", &BIRD_HIGH_S, 255);
+    cv::createTrackbar("LowS (bird)", "Bird Control", &BIRD_LOW_S, 255); // Saturation (0 - 255)
+    cv::createTrackbar("HighS (bird)", "Bird Control", &BIRD_HIGH_S, 255);
 
-    cv::createTrackbar("LowV", "Driver Control", &BIRD_LOW_V, 255); //Value (0 - 255)
-    cv::createTrackbar("HighV", "Driver Control", &BIRD_HIGH_V, 255);
+    cv::createTrackbar("LowV (bird)", "Bird Control", &BIRD_LOW_V, 255); // Value (0 - 255)
+    cv::createTrackbar("HighV (bird)", "Bird Control", &BIRD_HIGH_V, 255);
+
+    cv::createTrackbar("LowH (beak)", "Bird Control", &BEAK_LOW_H, 180); // Hue (0 - 180)
+    cv::createTrackbar("HighH (beak)", "Bird Control", &BEAK_HIGH_H, 180);
+
+    cv::createTrackbar("LowS (beak)", "Bird Control", &BEAK_LOW_S, 255); // Saturation (0 - 255)
+    cv::createTrackbar("HighS (beak)", "Bird Control", &BEAK_HIGH_S, 255);
+
+    cv::createTrackbar("LowV (beak)", "Bird Control", &BEAK_LOW_V, 255); // Value (0 - 255)
+    cv::createTrackbar("HighV (beak)", "Bird Control", &BEAK_HIGH_V, 255);
 
     // //Create trackbars in "Control" window
-    cv::createTrackbar("Opening", "Driver Control", &MORPHOLOGICAL_OPENING_THRESHOLD, 40);
-    cv::createTrackbar("Closing", "Driver Control", &MORPHOLOGICAL_CLOSING_THRESHOLD, 80);
+    cv::createTrackbar("Opening", "Bird Control", &MORPHOLOGICAL_OPENING_THRESHOLD, 40);
+    cv::createTrackbar("Closing", "Bird Control", &MORPHOLOGICAL_CLOSING_THRESHOLD, 80);
 #endif // CALIBRATING_DETECTOR
 }
 
@@ -261,10 +279,14 @@ void FeatureDetector::process(const cv::Mat& frame) {
     cv::Mat croppedImage = imgHSV(birdColumn);
 
     openClose(croppedImage, m_thresholdedBird, BIRD_LOW_H, BIRD_HIGH_H, BIRD_LOW_S, BIRD_HIGH_S, BIRD_LOW_V, BIRD_HIGH_V);
+    openClose(croppedImage, m_thresholdedBeak, BEAK_LOW_H, BEAK_HIGH_H, BEAK_LOW_S, BEAK_HIGH_S, BEAK_LOW_V,
+              BEAK_HIGH_V);
     openClose(imgHSV, m_thresholdedWorld, PIPES_LOW_H, PIPES_HIGH_H, PIPES_LOW_S, PIPES_HIGH_S, PIPES_LOW_V, PIPES_HIGH_V);
 
+    m_thresholdedBird += m_thresholdedBeak;
+
 #ifdef CALIBRATING_DETECTOR
-    m_imgCombined = m_thresholdedWorld + m_thresholdedBird;
+    m_imgCombined = m_thresholdedWorld + m_thresholdedBird + m_thresholdedBeak;
     cv::imshow("Combined", m_imgCombined);
 #endif
 }

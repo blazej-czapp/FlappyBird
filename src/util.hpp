@@ -45,7 +45,9 @@ public:
     ~Stopwatch() {
         auto end = std::chrono::system_clock::now();
 
-        std::cout << m_message << std::chrono::duration_cast<std::chrono::milliseconds>(end - m_start).count() << "ms" << std::endl;
+        std::cout << m_message << ": "
+                  << std::chrono::duration_cast<std::chrono::milliseconds>(end - m_start).count() << "ms"
+                  << std::endl;
     }
 
 private:

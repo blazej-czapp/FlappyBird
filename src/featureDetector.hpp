@@ -29,6 +29,7 @@ private:
     int lookLeft(int x, int y, int lookFor) const;
 
     cv::Mat m_thresholdedBird;
+    cv::Mat m_thresholdedBeak;
     cv::Mat m_thresholdedWorld;
 #ifdef CALIBRATING_DETECTOR
     cv::Mat m_imgCombined;
